@@ -1,0 +1,82 @@
+{
+    "$schema": "./signal_simulator.schema.json",
+    "protocol": {
+        "magic": "SIGSIM01",
+        "version": 1
+    },
+    "signal": {
+        "waveform": "sine",
+        "frequency_hz": 50.0,
+        "nominal_amplitude_v": 3.3,
+        "offset_v": 0.0,
+        "channels": [
+            {
+                "id": "A",
+                "phase_deg": 0.0
+            },
+            {
+                "id": "B",
+                "phase_deg": 120.0
+            },
+            {
+                "id": "C",
+                "phase_deg": 240.0
+            }
+        ]
+    },
+    "sampling": {
+        "samples_per_cycle": 128
+    },
+    "output": {
+        "representation": "adc_integer",
+        "layout": "interleaved",
+        "adc": {
+            "reference_voltage_v": 5.0,
+            "polarity": "bipolar",
+            "resolution_bits": 16
+        }
+    },
+    "buffer": {
+        "slot_count": 4,
+        "block_size_samples_per_channel": 32
+    },
+    "ipc": {
+        "shared_memory_name": "/signalsimulator_adc",
+        "notification": {
+            "type": "posix_named_semaphore",
+            "name": "/signalsimulator_adc_ready",
+            "initial_value": 0
+        }
+    },
+    "disturbance_timeline": [
+        {
+            "type": "surge",
+            "start_time_ns": 100000000,
+            "duration_ns": 2000000,
+            "target_channels": ["A"],
+            "shape": "half_sine",
+            "peak_amplitude_v": 1.5
+        },
+        {
+            "type": "voltage_sag",
+            "start_time_ns": 200000000,
+            "duration_ns": 100000000,
+            "target_channels": ["B"],
+            "scaling_factor": 0.65
+        },
+        {
+            "type": "voltage_swell",
+            "start_time_ns": 400000000,
+            "duration_ns": 100000000,
+            "target_channels": ["A", "B", "C"],
+            "scaling_factor": 1.25
+        },
+        {
+            "type": "frequency_distortion",
+            "mode": "step",
+            "start_time_ns": 600000000,
+            "duration_ns": 200000000,
+            "delta_frequency_hz": 5.0
+        }
+    ]
+}

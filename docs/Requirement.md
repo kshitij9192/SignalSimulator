@@ -6,7 +6,7 @@
 - Status: Ready
 - Ready for issue decomposition: Yes
 - Owner: Kshitij
-- Last updated: 2026-10-06
+- Last updated: 2026-10-11
 
 ## Title
 
@@ -14,13 +14,13 @@ Host-Based 3-Channel 3-Phase ADC Signal Simulator
 
 ## Purpose
 
-Provide embedded developers and test automation environments with a host-executable simulator (Windows/Linux) capable of generating synthetic ADC-sampled sensor signals, allowing embedded control logic (e.g., protection relays, motor control, temperature controllers) to be tested without physical signal generator hardware.
+Provide embedded developers and test automation environments with a Linux-host-executable simulator capable of generating synthetic ADC-sampled sensor signals, allowing embedded control logic (e.g., protection relays, motor control, temperature controllers) to be tested without physical signal generator hardware.
 
 ## Scope
 
 - Generation of 3-channel sinusoidal signals representing 3-phase systems with configurable inter-channel phase shift.
 - Dynamic waveform disturbance injection via deterministic scheduled event timelines (surges, voltage sags/swells, and frequency distortions).
-- Host platform execution (Linux and Windows).
+- Host platform execution on Linux.
 - Configurable signal parameters across defined dimensions: value, time, frequency, phase, and quality.
 - Output emission to a dedicated shared memory buffer.
 
@@ -31,6 +31,7 @@ Provide embedded developers and test automation environments with a host-executa
 - Continuous analog signal impairments in the initial release: Gaussian white noise (AWGN/SNR modeling), integer harmonic distortion (THD), and power supply ripple / DC offset drift.
 - Closed-loop hardware-in-the-loop (HIL) plant simulation in the initial scope.
 - Interactive graphical UI (GUI) in the initial release.
+- Windows host execution and Windows-specific IPC in the initial release.
 
 ## Functional Requirements
 
@@ -66,7 +67,6 @@ Provide embedded developers and test automation environments with a host-executa
 - FR-010: Each ring buffer slot shall store exactly one block of $N$ samples across all 3 channels formatted according to the configured memory layout (interleaved or planar) immediately following the Per-Slot Header.
 - FR-011: The system shall provide an OS synchronization signaling primitive to wake the consumer when a new block is available:
   - On Linux, the producer shall signal via a named POSIX semaphore (`sem_post`) or eventfd descriptor.
-  - On Windows, the producer shall signal via a named auto-reset Event (`SetEvent`).
   - The producer shall write the block payload, update the Per-Slot Header, update the atomic `write_seq` in the Global Control Header with release memory ordering, and subsequently signal the OS synchronization primitive.
   - The consumer may wait on the OS synchronization primitive to achieve zero CPU utilization during inter-block idle periods, or alternatively poll `write_seq` with acquire memory ordering.
 - FR-012: The system shall accept an input configuration via a structured JSON file specifying nominal signal parameters, ADC quantization parameters, buffer geometry, IPC identifiers, and an optional deterministic disturbance event timeline.
@@ -79,18 +79,18 @@ Provide embedded developers and test automation environments with a host-executa
 
 ## Non-Functional Requirements
 
-- NFR-001: The simulator shall compile and execute on both Linux and Windows host platforms.
+- NFR-001: The simulator shall compile and execute on Linux host platforms.
 - NFR-002: Real-time sample delivery throughput shall sustain the configured sampling rate and block emission cadence without dropped blocks under normal host load.
 - NFR-003: Timing jitter across emitted sample blocks shall remain bounded and shall not accumulate unbounded phase or frequency drift over continuous runtime.
 
 ## Constraints
 
-- Execution is restricted to standard host development/testing OS environments (Windows/Linux) without requiring a hard real-time kernel (PREEMPT_RT) as a mandatory prerequisite.
+- Execution is restricted to standard Linux host development/testing environments without requiring a hard real-time kernel (PREEMPT_RT) as a mandatory prerequisite.
 - Target initial scope is restricted to 3 channels and sinusoidal 3-phase waveforms.
 
 ## Assumptions
 
-- The consuming application or test harness runs on the same host operating system and attaches to the configured shared memory segment.
+- The consuming application or test harness runs on the same Linux host and attaches to the configured shared memory segment.
 
 ## Failure Modes
 
@@ -132,7 +132,7 @@ Provide embedded developers and test automation environments with a host-executa
 
 ## Risks
 
-- Operating system scheduler latency on general-purpose OS kernels (Linux CFS, Windows scheduler) causes wake-up jitter exceeding 130 µs when using naive sleep mechanisms.
+- Operating system scheduler latency on the general-purpose Linux CFS kernel may cause wake-up jitter exceeding 130 µs when using naive sleep mechanisms.
 - Memory allocation or page faults during runtime loop can introduce multi-millisecond spikes.
 - Consumer lag or stall may cause shared memory ring buffer overruns, resulting in dropped sample blocks or data tearing if synchronization is insufficient.
 

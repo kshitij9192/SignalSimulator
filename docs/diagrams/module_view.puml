@@ -1,0 +1,49 @@
+@startuml
+
+title Module View
+
+class ConfigParser {
+    .. Responsibility ..
+    Parses the injected configuration
+    --
+    + ParseConfig(): bool
+    + GetErrorString() : std::string
+}
+
+class DataManager {
+    .. Responsibility ..
+    Manage the N block memory wherein output will be dumped.
+    Handles the semaphore for notification.
+    --
+  
+}
+
+class SignalGenerator {
+    .. Responsibility ..
+    Generate data points based on configuration.
+    Routes generated data to OutputAssembler
+}
+
+class DistortionGenerator {
+    .. Responsiblity ..
+    Generate the configured disturbance aka distortion, sag/swell.
+}
+
+class OutputAssembler {
+    .. Responsibility ..
+    Superimposes the configured disturbance on generated signal data points.
+}
+
+
+interface SingalGeneratorInterface {
+    --
+    GenerateSignal(): void
+}
+
+interface DistortionGeneratorInterface
+{
+    --
+    GenerateDistortion(): void
+}
+
+@enduml

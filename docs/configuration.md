@@ -1,0 +1,73 @@
+# SignalSimulator Configuration
+
+The Linux simulator reads a JSON configuration with `--config <path>` (or `-c <path>`). [sample_config.json](sample_config.json) is a complete example. Its `$schema` property points to [signal_simulator.schema.json](signal_simulator.schema.json), enabling validation and completion in editors that support JSON Schema, including VS Code.
+
+The schema documents the config shape, supported choices, and local value ranges. Runtime validation must also check relationships between fields and reject invalid configurations before creating shared memory. JSON does not support comments; use this guide for explanation instead of adding comments to a config file.
+
+## Top-Level Settings
+
+| Property | Required | Purpose |
+| --- | --- | --- |
+| `protocol` | Yes | Shared-memory handshake magic and protocol version. |
+| `signal` | Yes | Nominal sine-wave frequency, amplitude, offset, and three channel phases. |
+| `sampling` | Yes | Exactly one of `samples_per_cycle` or `sample_rate_hz`. |
+| `output` | Yes | Sample representation, channel memory layout, and ADC options. |
+| `buffer` | Yes | Ring-buffer slot count and samples per channel in each block. |
+| `ipc` | Yes | Linux shared-memory and notification identifiers. |
+| `disturbance_timeline` | No | Optional scheduled waveform events. |
+
+Unknown properties are rejected by the schema. Enum values are case-sensitive and use the lowercase spellings shown in the sample.
+
+## Signal And Sampling
+
+`signal.frequency_hz` is the positive nominal frequency in hertz. `nominal_amplitude_v` is the peak amplitude in volts; `offset_v` is a constant offset in volts. `channels` must contain exactly three entries with distinct IDs. Each `phase_deg` is the phase displacement in degrees; the sample uses 0, 120, and 240 degrees. Event `target_channels` values must match configured channel IDs.
+
+The nominal voltage for channel $i$ is:
+
+$$
+v_i(t) = \text{offset}_v + \text{nominal\_amplitude}_v \sin\left(2\pi f t + \phi_i\right),
+\qquad \phi_i = \text{phase\_deg}_i \frac{\pi}{180}.
+$$
+
+Set exactly one sampling option:
+
+- `samples_per_cycle`: an integer resolution at the nominal frequency. The derived sample rate is `frequency_hz * samples_per_cycle`.
+- `sample_rate_hz`: a fixed number of samples per second, independent of the nominal frequency.
+
+The sample rate remains fixed during frequency-distortion events. Consequently, the number of samples per cycle changes while the event changes the signal frequency. With the sample values, 50 Hz and 128 samples per cycle produce 6.4 kHz. `block_size_samples_per_channel` of 240 then gives a nominal block interval of 37.5 ms.
+
+## Output And ADC
+
+`output.representation` accepts:
+
+- `float32` or `float64`: emit IEEE-754 voltage samples in the selected precision. Do not include `output.adc` for these modes.
+- `adc_integer`: quantize voltage samples using the required ADC settings.
+
+`output.layout` is `interleaved` (channel samples alternate at each sample index) or `planar` (all samples for one channel are followed by all samples for the next). Each slot contains three channels times `block_size_samples_per_channel` samples.
+
+For `adc_integer`, `reference_voltage_v` must be positive, `polarity` is `unipolar` or `bipolar`, and `resolution_bits` is 8, 12, 16, or 24. Unipolar input spans `[0, Vref]`; bipolar input spans `[-Vref, +Vref]`. Out-of-range values saturate at the corresponding ADC rail. Containers are 1 byte for 8-bit, 2 bytes for 12- and 16-bit, and 4 bytes for 24-bit samples; 12- and 24-bit values are right-justified.
+
+Nominal amplitude and offset must fit the selected ADC range to preserve headroom. For bipolar mode, the nominal peak envelope is `abs(offset_v) + nominal_amplitude_v` and must not exceed `reference_voltage_v`. For unipolar mode, the full nominal envelope must fit `[0, reference_voltage_v]`. Disturbances may exceed the rails and are saturated during quantization.
+
+## Buffer And IPC
+
+`buffer.slot_count` must be at least 2. A slot holds exactly one block and its metadata; the shared-memory header carries the active geometry and sequence counters.
+
+The initial release uses Linux IPC only. `shared_memory_name` is a POSIX shared-memory name, and `notification` configures the POSIX named semaphore used to wake the consumer. Names begin with one slash and contain no additional slash. The example semaphore is initialized to zero. Consumers may wait on the notification or poll the shared-memory sequence counters, as supported by the implementation.
+
+## Disturbance Timeline
+
+All event times and durations are integer nanoseconds relative to simulation start. Events are deterministic; list them in ascending `start_time_ns` order for readability. Targeted events must name one or more configured channel IDs. Frequency distortion always affects all three channels synchronously.
+
+| Type | Required event-specific settings | Behavior |
+| --- | --- | --- |
+| `surge` | `shape`, `peak_amplitude_v` | Adds a half-sine transient to each target channel over the event duration; `peak_amplitude_v` is its peak in volts. |
+| `voltage_sag` | `scaling_factor` | Multiplies target-channel amplitude by a factor strictly between 0 and 1. |
+| `voltage_swell` | `scaling_factor` | Multiplies target-channel amplitude by a factor greater than 1. |
+| `frequency_distortion` | `mode`, `delta_frequency_hz` | Applies a frequency offset to all channels. `step` applies it throughout the event; `ramp` changes the offset linearly from zero to `delta_frequency_hz` over the event duration. Phase remains continuous through transitions. |
+
+Sag and swell scale the sine amplitude, not the constant offset. Frequency changes must not make instantaneous frequency zero or negative. Until event-overlap composition is defined by the implementation, avoid overlapping events that affect the same channel or frequency.
+
+## Validation
+
+The schema checks JSON structure, required fields, enums, and local ranges. Runtime validation must additionally check conditions that depend on multiple values, including unique channel IDs, event targets referring to configured channels, nominal waveform fit within ADC rails, positive frequency throughout a frequency event, achievable sample rates, and Linux IPC constraints. Invalid configuration must be rejected before shared-memory initialization.

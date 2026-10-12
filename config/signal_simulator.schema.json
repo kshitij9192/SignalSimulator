@@ -1,0 +1,416 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "SignalSimulator configuration",
+  "description": "Version 1 configuration for the three-channel SignalSimulator.",
+  "type": "object",
+  "required": [
+    "protocol",
+    "signal",
+    "sampling",
+    "output",
+    "buffer",
+    "ipc"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "const": "./signal_simulator.schema.json",
+      "description": "Local JSON Schema reference for editor completion and validation."
+    },
+    "protocol": {
+      "type": "object",
+      "description": "Shared-memory handshake identifier and protocol version.",
+      "required": ["magic", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "magic": {
+          "const": "SIGSIM01",
+          "description": "Eight-byte protocol magic identifier."
+        },
+        "version": {
+          "const": 1,
+          "description": "Configuration and shared-memory protocol version."
+        }
+      }
+    },
+    "signal": {
+      "type": "object",
+      "description": "Nominal sinusoidal waveform and its three channel phases.",
+      "required": [
+        "waveform",
+        "frequency_hz",
+        "nominal_amplitude_v",
+        "offset_v",
+        "channels"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "waveform": {
+          "const": "sine",
+          "description": "Waveform shape. Version 1 supports sine waves."
+        },
+        "frequency_hz": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Nominal fundamental frequency in hertz."
+        },
+        "nominal_amplitude_v": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Nominal peak amplitude in volts, before disturbances."
+        },
+        "offset_v": {
+          "type": "number",
+          "description": "Constant waveform offset in volts."
+        },
+        "channels": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "description": "Exactly three channels. Each channel ID must be unique.",
+          "items": {
+            "$ref": "#/$defs/channel"
+          }
+        }
+      }
+    },
+    "sampling": {
+      "type": "object",
+      "description": "Set exactly one sampling-rate representation.",
+      "properties": {
+        "samples_per_cycle": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Integer samples per cycle at the nominal frequency. The sample rate is frequency_hz multiplied by this value."
+        },
+        "sample_rate_hz": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Fixed sample rate in samples per second."
+        }
+      },
+      "oneOf": [
+        {
+          "required": ["samples_per_cycle"],
+          "not": {
+            "required": ["sample_rate_hz"]
+          }
+        },
+        {
+          "required": ["sample_rate_hz"],
+          "not": {
+            "required": ["samples_per_cycle"]
+          }
+        }
+      ],
+      "additionalProperties": false
+    },
+    "output": {
+      "type": "object",
+      "description": "Sample representation, channel layout, and ADC settings when quantizing to integer codes.",
+      "required": ["representation", "layout"],
+      "additionalProperties": false,
+      "properties": {
+        "representation": {
+          "enum": ["float32", "float64", "adc_integer"],
+          "description": "IEEE-754 voltage samples or quantized ADC integer codes."
+        },
+        "layout": {
+          "enum": ["interleaved", "planar"],
+          "description": "Interleaved alternates channels per sample index; planar stores each full channel consecutively."
+        },
+        "adc": {
+          "type": "object",
+          "description": "Quantizer settings. Required only for adc_integer output.",
+          "required": [
+            "reference_voltage_v",
+            "polarity",
+            "resolution_bits"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "reference_voltage_v": {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "description": "ADC full-scale reference voltage in volts."
+            },
+            "polarity": {
+              "enum": ["unipolar", "bipolar"],
+              "description": "unipolar maps [0, Vref]; bipolar maps [-Vref, +Vref]."
+            },
+            "resolution_bits": {
+              "enum": [8, 12, 16, 24],
+              "description": "ADC code resolution in bits."
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "representation": {
+                "const": "adc_integer"
+              }
+            },
+            "required": ["representation"]
+          },
+          "then": {
+            "required": ["adc"]
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "representation": {
+                "enum": ["float32", "float64"]
+              }
+            },
+            "required": ["representation"]
+          },
+          "then": {
+            "not": {
+              "required": ["adc"]
+            }
+          }
+        }
+      ]
+    },
+    "buffer": {
+      "type": "object",
+      "description": "SPSC shared-memory ring buffer geometry.",
+      "required": ["slot_count", "block_size_samples_per_channel"],
+      "additionalProperties": false,
+      "properties": {
+        "slot_count": {
+          "type": "integer",
+          "minimum": 2,
+          "description": "Number of ring-buffer slots; must be at least two."
+        },
+        "block_size_samples_per_channel": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Samples accumulated per channel in each emitted block."
+        }
+      }
+    },
+    "ipc": {
+      "type": "object",
+      "description": "Linux shared-memory and consumer-notification names.",
+      "required": ["shared_memory_name", "notification"],
+      "additionalProperties": false,
+      "properties": {
+        "shared_memory_name": {
+          "type": "string",
+          "pattern": "^/[^/]+$",
+          "description": "POSIX shared-memory name, beginning with one slash."
+        },
+        "notification": {
+          "type": "object",
+          "required": ["type", "name", "initial_value"],
+          "additionalProperties": false,
+          "properties": {
+            "type": {
+              "const": "posix_named_semaphore",
+              "description": "Linux notification primitive."
+            },
+            "name": {
+              "type": "string",
+              "pattern": "^/[^/]+$",
+              "description": "POSIX semaphore name, beginning with one slash."
+            },
+            "initial_value": {
+              "const": 0,
+              "description": "Semaphore starts with no pending notifications."
+            }
+          }
+        }
+      }
+    },
+    "disturbance_timeline": {
+      "type": "array",
+      "description": "Optional deterministic events, with times measured from simulation start.",
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/surgeEvent"
+          },
+          {
+            "$ref": "#/$defs/voltageSagEvent"
+          },
+          {
+            "$ref": "#/$defs/voltageSwellEvent"
+          },
+          {
+            "$ref": "#/$defs/frequencyDistortionEvent"
+          }
+        ]
+      }
+    }
+  },
+  "$defs": {
+    "channel": {
+      "type": "object",
+      "required": ["id", "phase_deg"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Unique channel identifier, also used by targeted events."
+        },
+        "phase_deg": {
+          "type": "number",
+          "description": "Channel phase displacement in degrees."
+        }
+      }
+    },
+    "eventStartTime": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Event start time in nanoseconds from simulation start."
+    },
+    "eventDuration": {
+      "type": "integer",
+      "exclusiveMinimum": 0,
+      "description": "Event duration in nanoseconds."
+    },
+    "targetChannels": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "description": "One or more configured channel IDs affected by this event.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "surgeEvent": {
+      "type": "object",
+      "required": [
+        "type",
+        "start_time_ns",
+        "duration_ns",
+        "target_channels",
+        "shape",
+        "peak_amplitude_v"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "surge"
+        },
+        "start_time_ns": {
+          "$ref": "#/$defs/eventStartTime"
+        },
+        "duration_ns": {
+          "$ref": "#/$defs/eventDuration"
+        },
+        "target_channels": {
+          "$ref": "#/$defs/targetChannels"
+        },
+        "shape": {
+          "const": "half_sine",
+          "description": "Additive half-sine transient, peaking halfway through its duration."
+        },
+        "peak_amplitude_v": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "Peak additive surge amplitude in volts."
+        }
+      }
+    },
+    "voltageSagEvent": {
+      "type": "object",
+      "required": [
+        "type",
+        "start_time_ns",
+        "duration_ns",
+        "target_channels",
+        "scaling_factor"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "voltage_sag"
+        },
+        "start_time_ns": {
+          "$ref": "#/$defs/eventStartTime"
+        },
+        "duration_ns": {
+          "$ref": "#/$defs/eventDuration"
+        },
+        "target_channels": {
+          "$ref": "#/$defs/targetChannels"
+        },
+        "scaling_factor": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "exclusiveMaximum": 1,
+          "description": "Amplitude multiplier below one."
+        }
+      }
+    },
+    "voltageSwellEvent": {
+      "type": "object",
+      "required": [
+        "type",
+        "start_time_ns",
+        "duration_ns",
+        "target_channels",
+        "scaling_factor"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "voltage_swell"
+        },
+        "start_time_ns": {
+          "$ref": "#/$defs/eventStartTime"
+        },
+        "duration_ns": {
+          "$ref": "#/$defs/eventDuration"
+        },
+        "target_channels": {
+          "$ref": "#/$defs/targetChannels"
+        },
+        "scaling_factor": {
+          "type": "number",
+          "exclusiveMinimum": 1,
+          "description": "Amplitude multiplier above one."
+        }
+      }
+    },
+    "frequencyDistortionEvent": {
+      "type": "object",
+      "required": [
+        "type",
+        "mode",
+        "start_time_ns",
+        "duration_ns",
+        "delta_frequency_hz"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "const": "frequency_distortion"
+        },
+        "mode": {
+          "enum": ["step", "ramp"],
+          "description": "Apply a frequency step or linearly ramp the frequency offset over the event duration."
+        },
+        "start_time_ns": {
+          "$ref": "#/$defs/eventStartTime"
+        },
+        "duration_ns": {
+          "$ref": "#/$defs/eventDuration"
+        },
+        "delta_frequency_hz": {
+          "type": "number",
+          "description": "Frequency offset in hertz; may be positive or negative."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,146 @@
+Checks: >-
+  -*,
+  readability-identifier-naming,
+  custom-signal-simulator-*
+WarningsAsErrors: '*'
+CheckOptions:
+  readability-identifier-naming.MemberCase: CamelCase
+  readability-identifier-naming.MemberPrefix: m_
+  readability-identifier-naming.ConstantMemberCase: CamelCase
+  readability-identifier-naming.ConstantMemberPrefix: m_
+  readability-identifier-naming.ClassMemberCase: CamelCase
+  readability-identifier-naming.ClassMemberPrefix: m_
+  readability-identifier-naming.ClassConstantCase: CamelCase
+  readability-identifier-naming.ClassConstantPrefix: m_
+  readability-identifier-naming.ClassConstexprCase: CamelCase
+  readability-identifier-naming.ClassConstexprPrefix: m_
+CustomChecks:
+  - Name: signal-simulator-local-variable-case
+    Query: |
+      match varDecl(
+        hasAncestor(functionDecl()),
+        unless(parmVarDecl()),
+        unless(hasParent(cxxRecordDecl())),
+        unless(hasType(anyOf(pointerType(), memberPointerType(), referenceType()))),
+        unless(matchesName("(^|::)[A-Z][A-Za-z0-9]*$"))
+      ).bind("decl")
+    Diagnostic:
+      - BindName: decl
+        Message: local variable names must use PascalCase
+        Level: Warning
+  - Name: signal-simulator-local-pointer-prefix
+    Query: |
+      match varDecl(
+        hasAncestor(functionDecl()),
+        unless(parmVarDecl()),
+        unless(hasParent(cxxRecordDecl())),
+        hasType(anyOf(pointerType(), memberPointerType())),
+        unless(matchesName("(^|::)p[A-Z][A-Za-z0-9]*$"))
+      ).bind("decl")
+    Diagnostic:
+      - BindName: decl
+        Message: local pointer names must use p followed by PascalCase
+        Level: Warning
+  - Name: signal-simulator-pointer-parameter-prefix
+    Query: |
+      match parmVarDecl(
+        hasType(anyOf(pointerType(), memberPointerType())),
+        unless(matchesName("(^|::)p[A-Z][A-Za-z0-9]*$"))
+      ).bind("decl")
+    Diagnostic:
+      - BindName: decl
+        Message: pointer parameter names must use p followed by PascalCase
+        Level: Warning
+  - Name: signal-simulator-local-reference-prefix
+    Query: |
+      match varDecl(
+        hasAncestor(functionDecl()),
+        unless(parmVarDecl()),
+        unless(hasParent(cxxRecordDecl())),
+        hasType(referenceType()),
+        unless(matchesName("(^|::)r[A-Z][A-Za-z0-9]*$"))
+      ).bind("decl")
+    Diagnostic:
+      - BindName: decl
+        Message: local reference names must use r followed by PascalCase
+        Level: Warning
+  - Name: signal-simulator-reference-parameter-prefix
+    Query: |
+      match parmVarDecl(
+        hasType(referenceType()),
+        unless(matchesName("(^|::)r[A-Z][A-Za-z0-9]*$"))
+      ).bind("decl")
+    Diagnostic:
+      - BindName: decl
+        Message: reference parameter names must use r followed by PascalCase
+        Level: Warning
+  - Name: signal-simulator-member-reference-prefix
+    Query: |
+      match fieldDecl(
+        hasType(referenceType()),
+        unless(matchesName("(^|::)m_r[A-Z][A-Za-z0-9]*$"))
+      ).bind("decl")
+    Diagnostic:
+      - BindName: decl
+        Message: reference members must use m_r followed by PascalCase
+        Level: Warning
+  - Name: signal-simulator-member-pointer-prefix
+    Query: |
+      match fieldDecl(
+        hasType(anyOf(pointerType(), memberPointerType())),
+        unless(matchesName("(^|::)m_p[A-Z][A-Za-z0-9]*$"))
+      ).bind("decl")
+    Diagnostic:
+      - BindName: decl
+        Message: pointer members must use m_p followed by PascalCase
+        Level: Warning
+  - Name: signal-simulator-static-member-reference-prefix
+    Query: |
+      match varDecl(
+        hasParent(cxxRecordDecl()),
+        hasType(referenceType()),
+        unless(matchesName("(^|::)m_r[A-Z][A-Za-z0-9]*$"))
+      ).bind("decl")
+    Diagnostic:
+      - BindName: decl
+        Message: static reference members must use m_r followed by PascalCase
+        Level: Warning
+  - Name: signal-simulator-static-member-pointer-prefix
+    Query: |
+      match varDecl(
+        hasParent(cxxRecordDecl()),
+        hasType(anyOf(pointerType(), memberPointerType())),
+        unless(matchesName("(^|::)m_p[A-Z][A-Za-z0-9]*$"))
+      ).bind("decl")
+    Diagnostic:
+      - BindName: decl
+        Message: static pointer members must use m_p followed by PascalCase
+        Level: Warning
+  - Name: signal-simulator-global-reference-prefix
+    Query: |
+      match varDecl(
+        hasGlobalStorage(),
+        unless(hasAncestor(functionDecl())),
+        unless(hasLocalStorage()),
+        unless(hasParent(cxxRecordDecl())),
+        hasType(referenceType()),
+        unless(matchesName("(^|::)r[A-Z][A-Za-z0-9]*$"))
+      ).bind("decl")
+    Diagnostic:
+      - BindName: decl
+        Message: global reference names must use r followed by PascalCase
+        Level: Warning
+  - Name: signal-simulator-global-pointer-prefix
+    Query: |
+      match varDecl(
+        hasGlobalStorage(),
+        unless(hasAncestor(functionDecl())),
+        unless(hasLocalStorage()),
+        unless(hasParent(cxxRecordDecl())),
+        hasType(anyOf(pointerType(), memberPointerType())),
+        unless(matchesName("(^|::)p[A-Z][A-Za-z0-9]*$"))
+      ).bind("decl")
+    Diagnostic:
+      - BindName: decl
+        Message: global pointer names must use p followed by PascalCase
+        Level: Warning
