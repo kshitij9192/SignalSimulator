@@ -12,9 +12,11 @@ MemoryHandler::MemoryHandler(std::string Name, std::size_t SizeBytes)
     }
 }
 
+
 MemoryHandler::~MemoryHandler()
 {
 }
+
 
 void* MemoryHandler::GetSharedMemory()
 {

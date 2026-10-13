@@ -8,9 +8,8 @@ The schema documents the config shape, supported choices, and local value ranges
 
 | Property | Required | Purpose |
 | --- | --- | --- |
-| `protocol` | Yes | Shared-memory handshake magic and protocol version. |
-| `signal` | Yes | Nominal sine-wave frequency, amplitude, offset, and three channel phases. |
-| `sampling` | Yes | Exactly one of `samples_per_cycle` or `sample_rate_hz`. |
+| `signal` | Yes | Nominal sine-wave frequency, amplitude, offset, and configured channel phases. |
+| `sampling` | Yes | Samples per cycle at the nominal frequency. |
 | `output` | Yes | Sample representation, channel memory layout, and ADC options. |
 | `buffer` | Yes | Ring-buffer slot count and samples per channel in each block. |
 | `ipc` | Yes | Linux shared-memory and notification identifiers. |
@@ -20,7 +19,7 @@ Unknown properties are rejected by the schema. Enum values are case-sensitive an
 
 ## Signal And Sampling
 
-`signal.frequency_hz` is the positive nominal frequency in hertz. `nominal_amplitude_v` is the peak amplitude in volts; `offset_v` is a constant offset in volts. `channels` must contain exactly three entries with distinct IDs. Each `phase_deg` is the phase displacement in degrees; the sample uses 0, 120, and 240 degrees. Event `target_channels` values must match configured channel IDs.
+`signal.frequency_hz` is the positive nominal frequency in hertz. `nominal_amplitude_v` is the peak amplitude in volts; `offset_v` is a constant offset in volts. `channels` must contain at least one entry with a distinct ID. Each `phase_deg` is that channel's phase displacement in degrees; the sample uses the common three-phase values 0, 120, and 240 degrees. Event `target_channels` values must match configured channel IDs.
 
 The nominal voltage for channel $i$ is:
 
@@ -29,21 +28,18 @@ v_i(t) = \text{offset}_v + \text{nominal\_amplitude}_v \sin\left(2\pi f t + \phi
 \qquad \phi_i = \text{phase\_deg}_i \frac{\pi}{180}.
 $$
 
-Set exactly one sampling option:
+Set `sampling.samples_per_cycle` to the integer resolution at the nominal frequency. The parser derives the sample rate as `frequency_hz * samples_per_cycle`.
 
-- `samples_per_cycle`: an integer resolution at the nominal frequency. The derived sample rate is `frequency_hz * samples_per_cycle`.
-- `sample_rate_hz`: a fixed number of samples per second, independent of the nominal frequency.
-
-The sample rate remains fixed during frequency-distortion events. Consequently, the number of samples per cycle changes while the event changes the signal frequency. With the sample values, 50 Hz and 128 samples per cycle produce 6.4 kHz. `block_size_samples_per_channel` of 240 then gives a nominal block interval of 37.5 ms.
+The derived sample rate remains fixed during frequency-distortion events. Consequently, the number of samples per cycle changes while the event changes the signal frequency. With the sample values, 50 Hz and 128 samples per cycle produce 6.4 kHz. `block_size_samples_per_channel` of 240 then gives a nominal block interval of 37.5 ms.
 
 ## Output And ADC
 
 `output.representation` accepts:
 
-- `float32` or `float64`: emit IEEE-754 voltage samples in the selected precision. Do not include `output.adc` for these modes.
+- `float32`: emit IEEE-754 32-bit voltage samples. Do not include `output.adc` for this mode.
 - `adc_integer`: quantize voltage samples using the required ADC settings.
 
-`output.layout` is `interleaved` (channel samples alternate at each sample index) or `planar` (all samples for one channel are followed by all samples for the next). Each slot contains three channels times `block_size_samples_per_channel` samples.
+`output.layout` is `interleaved` (channel samples alternate at each sample index in configured channel order) or `planar` (all samples for one channel are followed by all samples for the next, in configured order). Each slot contains the configured number of channels times `block_size_samples_per_channel` samples.
 
 For `adc_integer`, `reference_voltage_v` must be positive, `polarity` is `unipolar` or `bipolar`, and `resolution_bits` is 8, 12, 16, or 24. Unipolar input spans `[0, Vref]`; bipolar input spans `[-Vref, +Vref]`. Out-of-range values saturate at the corresponding ADC rail. Containers are 1 byte for 8-bit, 2 bytes for 12- and 16-bit, and 4 bytes for 24-bit samples; 12- and 24-bit values are right-justified.
 
@@ -57,7 +53,7 @@ The initial release uses Linux IPC only. `shared_memory_name` is a POSIX shared-
 
 ## Disturbance Timeline
 
-All event times and durations are integer nanoseconds relative to simulation start. Events are deterministic; list them in ascending `start_time_ns` order for readability. Targeted events must name one or more configured channel IDs. Frequency distortion always affects all three channels synchronously.
+All event times and durations are integer nanoseconds relative to simulation start. Events are deterministic; list them in ascending `start_time_ns` order for readability. Targeted events must name one or more configured channel IDs. Frequency distortion affects all configured channels synchronously.
 
 | Type | Required event-specific settings | Behavior |
 | --- | --- | --- |

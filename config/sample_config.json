@@ -1,9 +1,5 @@
 {
     "$schema": "./signal_simulator.schema.json",
-    "protocol": {
-        "magic": "SIGSIM01",
-        "version": 1
-    },
     "signal": {
         "waveform": "sine",
         "frequency_hz": 50.0,

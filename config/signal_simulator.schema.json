@@ -1,10 +1,9 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "SignalSimulator configuration",
-  "description": "Version 1 configuration for the three-channel SignalSimulator.",
+  "description": "Version 1 configuration for the multi-channel SignalSimulator.",
   "type": "object",
   "required": [
-    "protocol",
     "signal",
     "sampling",
     "output",
@@ -18,25 +17,9 @@
       "const": "./signal_simulator.schema.json",
       "description": "Local JSON Schema reference for editor completion and validation."
     },
-    "protocol": {
-      "type": "object",
-      "description": "Shared-memory handshake identifier and protocol version.",
-      "required": ["magic", "version"],
-      "additionalProperties": false,
-      "properties": {
-        "magic": {
-          "const": "SIGSIM01",
-          "description": "Eight-byte protocol magic identifier."
-        },
-        "version": {
-          "const": 1,
-          "description": "Configuration and shared-memory protocol version."
-        }
-      }
-    },
     "signal": {
       "type": "object",
-      "description": "Nominal sinusoidal waveform and its three channel phases.",
+      "description": "Nominal sinusoidal waveform and configured channel phases.",
       "required": [
         "waveform",
         "frequency_hz",
@@ -66,9 +49,8 @@
         },
         "channels": {
           "type": "array",
-          "minItems": 3,
-          "maxItems": 3,
-          "description": "Exactly three channels. Each channel ID must be unique.",
+          "minItems": 1,
+          "description": "One or more channels. Each channel ID must be unique.",
           "items": {
             "$ref": "#/$defs/channel"
           }
@@ -77,33 +59,15 @@
     },
     "sampling": {
       "type": "object",
-      "description": "Set exactly one sampling-rate representation.",
+      "description": "Sampling resolution at the nominal frequency.",
+      "required": ["samples_per_cycle"],
       "properties": {
         "samples_per_cycle": {
           "type": "integer",
           "minimum": 1,
           "description": "Integer samples per cycle at the nominal frequency. The sample rate is frequency_hz multiplied by this value."
-        },
-        "sample_rate_hz": {
-          "type": "number",
-          "exclusiveMinimum": 0,
-          "description": "Fixed sample rate in samples per second."
         }
       },
-      "oneOf": [
-        {
-          "required": ["samples_per_cycle"],
-          "not": {
-            "required": ["sample_rate_hz"]
-          }
-        },
-        {
-          "required": ["sample_rate_hz"],
-          "not": {
-            "required": ["samples_per_cycle"]
-          }
-        }
-      ],
       "additionalProperties": false
     },
     "output": {
@@ -113,8 +77,8 @@
       "additionalProperties": false,
       "properties": {
         "representation": {
-          "enum": ["float32", "float64", "adc_integer"],
-          "description": "IEEE-754 voltage samples or quantized ADC integer codes."
+          "enum": ["float32", "adc_integer"],
+          "description": "IEEE-754 binary32 voltage samples or quantized ADC integer codes."
         },
         "layout": {
           "enum": ["interleaved", "planar"],
@@ -164,7 +128,7 @@
           "if": {
             "properties": {
               "representation": {
-                "enum": ["float32", "float64"]
+                "const": "float32"
               }
             },
             "required": ["representation"]

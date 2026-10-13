@@ -14,10 +14,12 @@
 
 OsAbstractions::OsAbstractions() = default;
 
+
 OsAbstractions::~OsAbstractions()
 {
     ReleaseSharedMemory();
 }
+
 
 void* OsAbstractions::CreateAndMapMemory(const std::string& rName, std::size_t SizeBytes)
 {
@@ -84,6 +86,7 @@ void* OsAbstractions::CreateAndMapMemory(const std::string& rName, std::size_t S
     throw std::runtime_error("shared memory is not implemented for this operating system");
 #endif
 }
+
 
 void OsAbstractions::ReleaseSharedMemory() noexcept
 {

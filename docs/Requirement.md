@@ -10,7 +10,7 @@
 
 ## Title
 
-Host-Based 3-Channel 3-Phase ADC Signal Simulator
+Host-Based Configurable Multi-Channel ADC Signal Simulator
 
 ## Purpose
 
@@ -18,7 +18,7 @@ Provide embedded developers and test automation environments with a Linux-host-e
 
 ## Scope
 
-- Generation of 3-channel sinusoidal signals representing 3-phase systems with configurable inter-channel phase shift.
+- Generation of sinusoidal signals for a configurable number of channels, including three-phase profiles with configurable inter-channel phase shifts.
 - Dynamic waveform disturbance injection via deterministic scheduled event timelines (surges, voltage sags/swells, and frequency distortions).
 - Host platform execution on Linux.
 - Configurable signal parameters across defined dimensions: value, time, frequency, phase, and quality.
@@ -35,15 +35,15 @@ Provide embedded developers and test automation environments with a Linux-host-e
 
 ## Functional Requirements
 
-- FR-001: The system shall generate synthetic signal waveforms simultaneously for 3 distinct channels.
-- FR-002: The system shall support 3-phase sinusoidal signal generation with configurable amplitude, fundamental frequency (e.g., 50 Hz, 60 Hz, or arbitrary positive frequency), offset, and per-channel phase displacement (e.g., 0°, 120°, 240°).
-- FR-003: The system shall support configurable sample rate or samples-per-cycle resolution.
+- FR-001: The system shall generate synthetic signal waveforms simultaneously for the configured number of distinct channels.
+- FR-002: The system shall support sinusoidal signal generation for all configured channels with configurable amplitude, fundamental frequency (e.g., 50 Hz, 60 Hz, or arbitrary positive frequency), offset, and per-channel phase displacement. A typical three-phase profile uses 0°, 120°, and 240°.
+- FR-003: The configuration shall specify samples per cycle at the nominal frequency, and the system shall derive the sample rate from that value and the nominal frequency.
 - FR-004: The system shall implement block/chunk-based emission mimicking ADC DMA ping-pong buffers, where the block size (number of samples per channel accumulated before triggering emission) is user-configurable.
 - FR-005: The system shall support configurable channel memory layout within each emitted block:
-  - Interleaved layout: Samples alternate sequentially by channel (`[Ch1[0], Ch2[0], Ch3[0], Ch1[1], Ch2[1], Ch3[1], ... Ch1[N-1], Ch2[N-1], Ch3[N-1]]`).
-  - Planar layout: Samples are contiguous per channel within the block (`[Ch1[0..N-1]][Ch2[0..N-1]][Ch3[0..N-1]]`).
+  - Interleaved layout: Samples alternate sequentially by configured channel order for each sample index.
+  - Planar layout: Samples are contiguous per channel in configured channel order within the block.
 - FR-006: The system shall support configurable sample output representations:
-  - Floating-point mode: Emitting IEEE-754 32-bit floating-point (`float`) or 64-bit floating-point (`double`) values representing physical engineering units (e.g., Volts).
+  - Floating-point mode: Emitting IEEE-754 32-bit floating-point (`float`) values representing physical engineering units (e.g., Volts).
   - Raw ADC integer mode: Emitting quantized discrete integer counts derived from the simulated analog signal using configurable ADC parameters:
     - Reference amplitude $V_{\text{ref}}$ ($V_{\text{ref}} > 0$), defining the ADC hardware full-scale input boundary.
     - Polarity mode: `UNIPOLAR` (input dynamic range $[0, V_{\text{ref}}]$) or `BIPOLAR` (input dynamic range $[-V_{\text{ref}}, +V_{\text{ref}}]$).
@@ -58,13 +58,13 @@ Provide embedded developers and test automation environments with a Linux-host-e
 - FR-007: The system shall structure the shared memory segment as a Single-Producer Single-Consumer (SPSC) lock-free ring buffer comprising a user-configurable number of slots $K$ ($K \ge 2$).
 - FR-008: The shared memory segment shall include a fixed Global Control Header at offset 0 containing:
   - Magic identifier and protocol version for handshake verification and compatibility checks.
-  - Active configuration fields: slot count $K$, block size $N$ (samples per channel), channel count (3), sample representation format, memory layout mode (interleaved vs planar), and configured sampling rate.
+  - Active configuration fields: slot count $K$, block size $N$ (samples per channel), configured channel count, sample representation format, memory layout mode (interleaved vs planar), and configured sampling rate.
   - 64-bit atomic synchronization variables: `write_seq` (monotonically incremented by producer), `read_seq` (monotonically incremented by consumer), and `dropped_blocks` (incremented on overrun).
 - FR-009: Each ring buffer slot shall include a Per-Slot Header immediately preceding the sample data payload, containing:
   - Block sequence number (monotonically incremented with each emitted block; readable before and after payload copy for torn-read detection).
   - 64-bit virtual simulation timestamp (in nanoseconds) corresponding to the first sample in the block.
   - Per-slot payload metadata (sample count $N$, payload byte size).
-- FR-010: Each ring buffer slot shall store exactly one block of $N$ samples across all 3 channels formatted according to the configured memory layout (interleaved or planar) immediately following the Per-Slot Header.
+- FR-010: Each ring buffer slot shall store exactly one block of $N$ samples for every configured channel, formatted according to the configured memory layout (interleaved or planar) immediately following the Per-Slot Header.
 - FR-011: The system shall provide an OS synchronization signaling primitive to wake the consumer when a new block is available:
   - On Linux, the producer shall signal via a named POSIX semaphore (`sem_post`) or eventfd descriptor.
   - The producer shall write the block payload, update the Per-Slot Header, update the atomic `write_seq` in the Global Control Header with release memory ordering, and subsequently signal the OS synchronization primitive.
@@ -74,8 +74,8 @@ Provide embedded developers and test automation environments with a Linux-host-e
 - FR-014: The system shall support a deterministic disturbance event timeline defined in the JSON configuration where events execute at specified simulation timestamps:
   - Surge event: Injects an additive transient impulse or surge waveform into one or more specified channels with configurable start time, duration, and peak amplitude.
   - Voltage Sag / Swell event: Modulates the nominal waveform amplitude by a configurable scaling factor (sag: $< 1.0$, swell: $> 1.0$) for a configurable duration on one or more specified channels.
-  - Frequency distortion event: Alters the fundamental frequency by applying a frequency step or ramp $(\Delta f)$ for a configurable duration on all 3 phases synchronously, maintaining continuous phase across transitions without discontinuous phase jumps.
-- FR-015: Disturbance events on multiple channels shall support both single-phase (individual channel) and three-phase (all channels simultaneously) targeting. During disturbance injection, if the resultant instantaneous voltage exceeds the configured ADC dynamic range, the quantizer shall saturate at the ADC rail limits in accordance with FR-006.
+  - Frequency distortion event: Alters the fundamental frequency by applying a frequency step or ramp $(\Delta f)$ for a configurable duration synchronously across all configured channels, maintaining continuous phase across transitions without discontinuous phase jumps.
+- FR-015: Disturbance events shall support targeting an individual configured channel or all configured channels simultaneously. During disturbance injection, if the resultant instantaneous voltage exceeds the configured ADC dynamic range, the quantizer shall saturate at the ADC rail limits in accordance with FR-006.
 
 ## Non-Functional Requirements
 
@@ -86,7 +86,7 @@ Provide embedded developers and test automation environments with a Linux-host-e
 ## Constraints
 
 - Execution is restricted to standard Linux host development/testing environments without requiring a hard real-time kernel (PREEMPT_RT) as a mandatory prerequisite.
-- Target initial scope is restricted to 3 channels and sinusoidal 3-phase waveforms.
+- Target initial scope supports a configurable number of channels and sinusoidal waveforms, including three-phase profiles.
 
 ## Assumptions
 
@@ -99,14 +99,14 @@ Provide embedded developers and test automation environments with a Linux-host-e
 
 ## Acceptance Criteria
 
-- AC-001: Given a 3-channel sinusoidal configuration with specified frequency, amplitude, and phase offsets, the system outputs samples exhibiting the specified phase shift and amplitudes across all 3 channels.
-- AC-002: In floating-point mode, output values match theoretical waveform values within IEEE-754 precision tolerance.
+- AC-001: Given a sinusoidal configuration with a configured number of channels and specified frequency, amplitude, and phase offsets, the system outputs samples exhibiting the specified phase shifts and amplitudes for every configured channel.
+- AC-002: In `float32` mode, output values match theoretical waveform values within IEEE-754 binary32 precision tolerance.
 - AC-003: In raw ADC mode, output values are correctly quantized according to the configured bit depth $B \in \{8, 12, 16, 24\}$, reference amplitude $V_{\text{ref}}$, and polarity:
   - For `UNIPOLAR` mode, input dynamic range $[0, V_{\text{ref}}]$ maps linearly to $[0, 2^B - 1]$; values $< 0$ clamp to $0$, and values $> V_{\text{ref}}$ clamp to $2^B - 1$. Unused high bits in containers (bits $[15:12]$ for 12-bit; bits $[31:24]$ for 24-bit) are zero-extended.
   - For `BIPOLAR` mode, input dynamic range $[-V_{\text{ref}}, +V_{\text{ref}}]$ maps linearly to $[-2^{B-1}, 2^{B-1} - 1]$; values $< -V_{\text{ref}}$ clamp to $-2^{B-1}$, and values $> +V_{\text{ref}}$ clamp to $2^{B-1} - 1$. Unused high bits in containers are sign-extended from the ADC MSB ($B-1$).
   - Sample container sizes match the specification: 1 byte for 8-bit, 2 bytes for 12-bit and 16-bit, and 4 bytes for 24-bit.
 - AC-004: When configured for block emission of size $N$, the system emits batches containing exactly $N$ samples per channel at the calculated interval $N \times T_s$.
-- AC-005: When configured for interleaved layout, byte order and sample indexing in the output payload match `Ch1[0], Ch2[0], Ch3[0]...`; when configured for planar layout, all $N$ samples of `Ch1` are followed immediately by `Ch2`, then `Ch3`.
+- AC-005: When configured for interleaved layout, samples for each sample index appear in configured channel order; when configured for planar layout, each channel's $N$ samples appear contiguously in configured channel order.
 - AC-006: Generated sample blocks are successfully written to and read from the shared memory SPSC ring buffer across all $K$ slots in sequence.
 - AC-007: The consumer validates the Global Control Header magic bytes and configuration parameters upon attaching, rejecting mismatched layouts before reading samples.
 - AC-008: The consumer verifies per-slot sequence numbers and timestamps to detect torn reads, dropped blocks, and time continuity across successive slots.
@@ -114,7 +114,7 @@ Provide embedded developers and test automation environments with a Linux-host-e
 - AC-010: The producer signals the OS event/semaphore after every committed slot write. A blocking consumer waiting on the OS synchronization primitive wakes up and successfully reads the newly available block without requiring a busy-polling loop.
 - AC-011: Given a configured surge event at simulation time $t_{\text{start}}$, the emitted samples for the targeted channel reflect the additive surge with peak amplitude and duration within 1 sample period ($T_s$) of the configured timeline.
 - AC-012: Given a configured voltage sag or swell event, the targeted channel amplitude scales by the specified factor during the active window, and returns to nominal amplitude upon event expiration.
-- AC-013: Given a configured frequency distortion event, the generated waveform tracks the modified frequency across all phases without discontinuous phase jumps or waveform tearing at transition boundaries.
+- AC-013: Given a configured frequency distortion event, the generated waveforms track the modified frequency across all configured channels without discontinuous phase jumps or waveform tearing at transition boundaries.
 - AC-014: If an injected surge or swell stays within $V_{\text{ref}}$, raw ADC output codes proportionally track the increased voltage within the reserved headroom without saturation. If the disturbance voltage exceeds $V_{\text{ref}}$ (or falls below $V_{\text{min}}$), output codes clamp to the respective extreme counts ($0$ or $2^B - 1$ for unipolar; $-2^{B-1}$ or $2^{B-1} - 1$ for bipolar) without numerical wrapping.
 - AC-015: When launched with an invalid JSON configuration or out-of-range parameters (e.g., negative frequency, unknown polarity, invalid bit depth, or nominal amplitude plus offset exceeding $V_{\text{ref}}$ without headroom), the simulator fails fast before allocating shared memory, emits an error to `stderr`, and exits with a non-zero code.
 
@@ -141,5 +141,5 @@ Provide embedded developers and test automation environments with a Linux-host-e
 - ADC: Analog-to-Digital Converter
 - IPC: Inter-Process Communication
 - SPSC: Single-Producer Single-Consumer lock-free ring buffer
-- Slot: One discrete buffer partition in the ring buffer capable of holding one full block of $N$ samples for all 3 channels
+- Slot: One discrete buffer partition in the ring buffer capable of holding one full block of $N$ samples for every configured channel
 - Phase Shift: Angular displacement between wave peaks across channels (typically nominal 120° for 3-phase)

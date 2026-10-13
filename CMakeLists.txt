@@ -35,12 +35,20 @@ set(SIGNAL_SIMULATOR_CPP_SOURCES
 )
 set(SIGNAL_SIMULATOR_CXX_SOURCES
     ${SIGNAL_SIMULATOR_CPP_SOURCES}
+    src/Config.h
+    src/ConfigParser.cpp
+    src/ConfigParser.h
     src/MemoryHandler.h
     src/OsAbstractions.h
 )
-add_executable(signal_simulator ${SIGNAL_SIMULATOR_CXX_SOURCES})
-target_compile_features(signal_simulator PRIVATE cxx_std_17)
-target_link_libraries(signal_simulator PRIVATE nlohmann_json::nlohmann_json)
+
+add_library(signal_simulator_config src/ConfigParser.cpp src/ConfigParser.h)
+target_compile_features(signal_simulator_config PUBLIC cxx_std_17)
+target_include_directories(signal_simulator_config PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_link_libraries(signal_simulator_config PUBLIC nlohmann_json::nlohmann_json)
+
+add_executable(signal_simulator ${SIGNAL_SIMULATOR_CPP_SOURCES} src/MemoryHandler.h src/OsAbstractions.h)
+target_link_libraries(signal_simulator PRIVATE signal_simulator_config)
 
 find_program(CLANG_FORMAT_EXECUTABLE NAMES clang-format)
 if(CLANG_FORMAT_EXECUTABLE)

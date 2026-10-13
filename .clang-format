@@ -1,6 +1,8 @@
 BasedOnStyle: LLVM
+AlignAfterOpenBracket: Align
 BreakBeforeBraces: Allman
 ColumnLimit: 0
+MaxEmptyLinesToKeep: 2
 IndentWidth: 4
 PointerAlignment: Left
 TabWidth: 4
