@@ -6,27 +6,6 @@
 
 #include <set>
 
-struct SimulatorConfig
-{
-    double FrequencyHz = 0.0;
-    double NominalAmplitudeV = 0.0;
-    double OffsetV = 0.0;
-    std::vector<ChannelConfig> Channels;
-    std::optional<std::uint64_t> SamplesPerCycle;
-    double SampleRateHz = 0.0;
-    SampleRepresentation Representation = SampleRepresentation::Float32;
-    ChannelDataLayout Layout = ChannelDataLayout::Interleaved;
-    std::optional<AdcConfig> Adc;
-    std::size_t SlotCount = 0;
-    std::size_t BlockSizeSamplesPerChannel = 0;
-    std::string SharedMemoryName;
-    std::string NotificationType;
-    std::string NotificationName;
-    std::uint32_t NotificationInitialValue = 0;
-    std::vector<DisturbanceEvent> DisturbanceTimeline;
-};
-
-
 class ConfigParser final
 {
   public:
@@ -84,6 +63,6 @@ class ConfigParser final
     static void ValidateNominalSignalWithinAdcRange(const SimulatorConfig& rConfig);
     static void ParseDisturbanceTimeline(const Json& rRoot, SimulatorConfig& rConfig,
                                          const std::set<std::string>& rChannelIds);
-    static SimulatorConfig ParseConfigDocument(const Json& rRoot);
-    static SimulatorConfig ValidateAndConvertJsonDocument(const Json& rDocument);
+    static SimulatorConfig ExtractAndValidateJson(const Json& rRoot);
+    static SimulatorConfig TryParsingJson(const Json& rDocument);
 };

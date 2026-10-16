@@ -6,21 +6,21 @@
 #include <variant>
 #include <vector>
 
-enum class SampleRepresentation
+enum class SampleRepresentation : std::uint32_t
 {
     AdcInteger,
     Float32
 };
 
 
-enum class ChannelDataLayout
+enum class ChannelDataLayout : std::uint32_t
 {
     Interleaved,
     Planar
 };
 
 
-enum class AdcPolarity
+enum class AdcPolarity : std::uint32_t
 {
     Unipolar,
     Bipolar
@@ -85,5 +85,24 @@ struct FrequencyDistortionEvent
 };
 
 
-using DisturbanceEvent = std::variant<SurgeEvent, VoltageSagEvent, VoltageSwellEvent,
-                                      FrequencyDistortionEvent>;
+using DisturbanceEvent = std::variant<SurgeEvent, VoltageSagEvent, VoltageSwellEvent, FrequencyDistortionEvent>;
+
+struct SimulatorConfig
+{
+    double FrequencyHz = 0.0;
+    double NominalAmplitudeV = 0.0;
+    double OffsetV = 0.0;
+    std::vector<ChannelConfig> Channels;
+    std::optional<std::uint64_t> SamplesPerCycle;
+    double SampleRateHz = 0.0;
+    SampleRepresentation Representation = SampleRepresentation::Float32;
+    ChannelDataLayout Layout = ChannelDataLayout::Interleaved;
+    std::optional<AdcConfig> Adc;
+    std::size_t SlotCount = 0;
+    std::size_t BlockSizeSamplesPerChannel = 0;
+    std::string SharedMemoryName;
+    std::string NotificationType;
+    std::string NotificationName;
+    std::uint32_t NotificationInitialValue = 0;
+    std::vector<DisturbanceEvent> DisturbanceTimeline;
+};

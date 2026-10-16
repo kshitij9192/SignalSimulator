@@ -450,9 +450,9 @@ void ConfigParser::ParseBufferConfiguration(const Json& rRoot, SimulatorConfig& 
     const Json& Buffer = FindKeyInJson(rRoot, "buffer", "$");
     rConfig.SlotCount = ToSizeTValue(FindKeyInJson(Buffer, "slot_count", "buffer"),
                                      "buffer.slot_count");
-    if (rConfig.SlotCount < 2)
+    if (rConfig.SlotCount < 2 || rConfig.SlotCount > 6)
     {
-        ThrowConfigError("buffer.slot_count", "must be at least 2");
+        ThrowConfigError("buffer.slot_count", "must be between 2 and 6");
     }
     rConfig.BlockSizeSamplesPerChannel = ToSizeTValue(
         FindKeyInJson(Buffer, "block_size_samples_per_channel", "buffer"),
@@ -556,7 +556,7 @@ void ConfigParser::ParseDisturbanceTimeline(const Json& rRoot, SimulatorConfig& 
 }
 
 
-SimulatorConfig ConfigParser::ParseConfigDocument(const Json& rRoot)
+SimulatorConfig ConfigParser::ExtractAndValidateJson(const Json& rRoot)
 {
     ValidateSchemaReference(rRoot);
 
@@ -573,11 +573,11 @@ SimulatorConfig ConfigParser::ParseConfigDocument(const Json& rRoot)
 }
 
 
-SimulatorConfig ConfigParser::ValidateAndConvertJsonDocument(const Json& rDocument)
+SimulatorConfig ConfigParser::TryParsingJson(const Json& rDocument)
 {
     try
     {
-        return ParseConfigDocument(rDocument);
+        return ExtractAndValidateJson(rDocument);
     }
     catch (const Json::exception& Error)
     {
@@ -595,7 +595,7 @@ SimulatorConfig ConfigParser::ParseConfigFile(const std::string& rPath)
     }
     try
     {
-        return ValidateAndConvertJsonDocument(Json::parse(Input));
+        return TryParsingJson(Json::parse(Input));
     }
     catch (const Json::parse_error& Error)
     {

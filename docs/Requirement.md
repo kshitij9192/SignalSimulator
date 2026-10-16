@@ -55,9 +55,8 @@ Provide embedded developers and test automation environments with a Linux-host-e
       - 16-bit: stored in 2-byte container (`uint16_t` for unipolar, `int16_t` for bipolar).
       - 24-bit: stored right-justified in 4-byte container (`uint32_t` for unipolar with bits $[31:24]$ zero-padded; `int32_t` for bipolar with bits $[31:24]$ sign-extended from bit 23).
     - Saturation & Clamping: Signal voltages outside the configured dynamic range shall be clamped/saturated at the minimum and maximum discrete counts without integer overflow or wrap-around.
-- FR-007: The system shall structure the shared memory segment as a Single-Producer Single-Consumer (SPSC) lock-free ring buffer comprising a user-configurable number of slots $K$ ($K \ge 2$).
+- FR-007: The system shall structure the shared memory segment as a Single-Producer Single-Consumer (SPSC) lock-free ring buffer comprising a user-configurable number of slots $K$ ($2 \le K \le 6$).
 - FR-008: The shared memory segment shall include a fixed Global Control Header at offset 0 containing:
-  - Magic identifier and protocol version for handshake verification and compatibility checks.
   - Active configuration fields: slot count $K$, block size $N$ (samples per channel), configured channel count, sample representation format, memory layout mode (interleaved vs planar), and configured sampling rate.
   - 64-bit atomic synchronization variables: `write_seq` (monotonically incremented by producer), `read_seq` (monotonically incremented by consumer), and `dropped_blocks` (incremented on overrun).
 - FR-009: Each ring buffer slot shall include a Per-Slot Header immediately preceding the sample data payload, containing:

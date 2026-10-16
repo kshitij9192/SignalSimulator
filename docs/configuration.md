@@ -47,7 +47,7 @@ Nominal amplitude and offset must fit the selected ADC range to preserve headroo
 
 ## Buffer And IPC
 
-`buffer.slot_count` must be at least 2. A slot holds exactly one block and its metadata; the shared-memory header carries the active geometry and sequence counters.
+`buffer.slot_count` must be between 2 and 6. A slot holds exactly one block and its metadata; the shared-memory header carries the active geometry and sequence counters.
 
 The initial release uses Linux IPC only. `shared_memory_name` is a POSIX shared-memory name, and `notification` configures the POSIX named semaphore used to wake the consumer. Names begin with one slash and contain no additional slash. The example semaphore is initialized to zero. Consumers may wait on the notification or poll the shared-memory sequence counters, as supported by the implementation.
 

@@ -32,3 +32,26 @@
 - **Verification boundary:** C++ integration tests remain authoritative for byte layout, quantization, slot sequencing, and synchronization. Plots help inspect waveform shape, phase, amplitude, clipping, and disturbance windows, but do not replace numeric assertions.
 - **Performance caveat:** CSV writing adds I/O and can slow the consumer. Do not use file-writing captures to claim real-time throughput or jitter performance; run those checks without file output or with a bounded in-memory capture.
 - **Scope:** This is test/diagnostic tooling, not a file-based simulator egress mode, so the initial release remains shared-memory-only.
+
+## Signal Synthesis, Quantization, And Block Cadence
+
+- **Decision:** Decouple virtual sample time from host OS wall-clock time, synthesize analog waveforms using a continuous phase accumulator, apply disturbances in the analog voltage domain prior to quantization, and emit full blocks of $N$ samples per wake-up paced by an absolute monotonic timer (`clock_nanosleep` with `CLOCK_MONOTONIC` and `TIMER_ABSTIME`).
+- **Virtual sample time vs. wall-clock time:** Each sample index $n = 0, 1, 2, \dots$ corresponds to a deterministic virtual simulation timestamp $t_n = n \cdot T_s = n / f_s$. Host OS scheduler wake-up jitter affects only the wall-clock instant a block becomes visible in shared memory, never the mathematical sample values or timestamps written into the payload and slot header.
+- **Continuous phase accumulation:** Rather than evaluating $\sin(2\pi f t_n)$ directly from elapsed time $t_n$—which introduces discontinuous phase jumps when frequency changes and loses floating-point precision over long runtimes—the generator maintains a wrapped base phase accumulator $\theta_n \in [0, 2\pi)$ updated per sample as:
+
+    $$
+    \theta_{n+1} = \left(\theta_n + 2\pi \cdot f_{\text{inst}}(t_n) \cdot T_s\right) \bmod 2\pi
+    $$
+
+    Each channel $i$ then evaluates $\sin(\theta_n + \phi_i)$, preserving phase continuity across frequency steps and ramps.
+- **Analog disturbance composition before quantization:** Disturbances model physical analog events before the ADC input stage:
+  1. Frequency distortion modifies $f_{\text{inst}}(t_n)$ when advancing $\theta_n$.
+  2. Voltage sag and swell scale the sinusoidal amplitude $A_{\text{nominal}}$ (leaving `offset_v` unchanged), and surge adds a transient voltage offset:
+
+      $$
+      v_i(t_n) = V_{\text{offset}} + \left(\text{scale}_i(t_n) \cdot A_{\text{nominal}} \cdot \sin(\theta_n + \phi_i)\right) + v_{\text{surge}, i}(t_n)
+      $$
+
+  3. The resulting analog voltage $v_i(t_n)$ is then either written directly as IEEE-754 `float32` or quantized to raw ADC integer counts ($8/12/16/24$-bit, unipolar or bipolar) with saturation/clamping at the configured $V_{\text{ref}}$ rails.
+- **Block-rate pacing without cumulative drift:** Waking a Linux thread on every individual sample period (e.g., $156.25\ \mu\text{s}$ at $6.4\text{ kHz}$) incurs high context-switch overhead and scheduler jitter. Instead, the producer wakes once per block interval $T_{\text{block}} = N \cdot T_s$, synthesizes all $N$ samples for all configured channels into the next ring-buffer slot, updates the slot and global sequence counters, and signals the POSIX semaphore. Using absolute target deadlines ($\text{NextWakeTime}_k = t_{\text{start}} + k \cdot T_{\text{block}}$) with `TIMER_ABSTIME` ensures that single-cycle wake-up latency never accumulates into long-term frequency or cadence drift.
+

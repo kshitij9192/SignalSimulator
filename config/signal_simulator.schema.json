@@ -150,7 +150,8 @@
         "slot_count": {
           "type": "integer",
           "minimum": 2,
-          "description": "Number of ring-buffer slots; must be at least two."
+          "maximum": 6,
+          "description": "Number of ring-buffer slots; must be between two and six."
         },
         "block_size_samples_per_channel": {
           "type": "integer",
