@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -36,16 +37,38 @@ enum class FrequencyDistortionMode
 
 struct ChannelConfig
 {
-    std::string Id;
+    std::size_t Id = 0;
     double PhaseDegrees = 0.0;
 };
 
 
 struct AdcConfig
 {
-    double ReferenceVoltageV = 0.0;
+    double ReferenceAmplitude = 0.0;
     AdcPolarity Polarity = AdcPolarity::Bipolar;
     std::uint32_t ResolutionBits = 0;
+
+    std::size_t GetBytesPerSample() const
+    {
+        std::size_t BytesPerSample = 0;
+
+        switch (ResolutionBits)
+        {
+        case 8:
+            BytesPerSample = 1;
+            break;
+        case 12:
+        case 16:
+            BytesPerSample = 2;
+            break;
+        case 24:
+        default:
+            BytesPerSample = 4;
+            break;
+        }
+
+        return BytesPerSample;
+    }
 };
 
 
@@ -53,25 +76,25 @@ struct SurgeEvent
 {
     std::uint64_t StartTimeNs = 0;
     std::uint64_t DurationNs = 0;
-    std::vector<std::string> TargetChannels;
-    double PeakAmplitudeV = 0.0;
+    std::vector<std::size_t> TargetChannels;
+    double PeakAmplitude = 0.0;
 };
 
 
-struct VoltageSagEvent
+struct SagEvent
 {
     std::uint64_t StartTimeNs = 0;
     std::uint64_t DurationNs = 0;
-    std::vector<std::string> TargetChannels;
+    std::vector<std::size_t> TargetChannels;
     double ScalingFactor = 0.0;
 };
 
 
-struct VoltageSwellEvent
+struct SwellEvent
 {
     std::uint64_t StartTimeNs = 0;
     std::uint64_t DurationNs = 0;
-    std::vector<std::string> TargetChannels;
+    std::vector<std::size_t> TargetChannels;
     double ScalingFactor = 0.0;
 };
 
@@ -85,13 +108,13 @@ struct FrequencyDistortionEvent
 };
 
 
-using DisturbanceEvent = std::variant<SurgeEvent, VoltageSagEvent, VoltageSwellEvent, FrequencyDistortionEvent>;
+using DisturbanceEvent = std::variant<SurgeEvent, SagEvent, SwellEvent, FrequencyDistortionEvent>;
 
 struct SimulatorConfig
 {
     double FrequencyHz = 0.0;
-    double NominalAmplitudeV = 0.0;
-    double OffsetV = 0.0;
+    double NominalAmplitude = 0.0;
+    double Offset = 0.0;
     std::vector<ChannelConfig> Channels;
     std::optional<std::uint64_t> SamplesPerCycle;
     double SampleRateHz = 0.0;
@@ -105,4 +128,16 @@ struct SimulatorConfig
     std::string NotificationName;
     std::uint32_t NotificationInitialValue = 0;
     std::vector<DisturbanceEvent> DisturbanceTimeline;
+
+    std::size_t GetBytesPerSample() const
+    {
+        std::size_t BytesPerSample = sizeof(float);
+
+        if (Representation != SampleRepresentation::Float32 && Adc.has_value())
+        {
+            BytesPerSample = Adc->GetBytesPerSample();
+        }
+
+        return BytesPerSample;
+    }
 };

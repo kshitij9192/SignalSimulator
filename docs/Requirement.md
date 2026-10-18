@@ -19,16 +19,16 @@ Provide embedded developers and test automation environments with a Linux-host-e
 ## Scope
 
 - Generation of sinusoidal signals for a configurable number of channels, including three-phase profiles with configurable inter-channel phase shifts.
-- Dynamic waveform disturbance injection via deterministic scheduled event timelines (surges, voltage sags/swells, and frequency distortions).
+- Dynamic waveform disturbance injection via deterministic scheduled event timelines (surges, sags/swells, and frequency distortions).
 - Host platform execution on Linux.
 - Configurable signal parameters across defined dimensions: value, time, frequency, phase, and quality.
 - Output emission to a dedicated shared memory buffer.
 
 ## Non-Goals
 
-- Physical hardware signal generation (DAC, physical voltage/current injection hardware, GPIO/PWM electrical output).
+- Physical hardware signal generation (DAC, physical signal injection hardware, GPIO/PWM output).
 - File-based and pipe/FIFO-based egress channels in the initial release (scoped strictly to shared memory).
-- Continuous analog signal impairments in the initial release: Gaussian white noise (AWGN/SNR modeling), integer harmonic distortion (THD), and power supply ripple / DC offset drift.
+- Continuous analog signal impairments in the initial release: Gaussian white noise (AWGN/SNR modeling), integer harmonic distortion (THD), and ripple / DC offset drift.
 - Closed-loop hardware-in-the-loop (HIL) plant simulation in the initial scope.
 - Interactive graphical UI (GUI) in the initial release.
 - Windows host execution and Windows-specific IPC in the initial release.
@@ -43,18 +43,18 @@ Provide embedded developers and test automation environments with a Linux-host-e
   - Interleaved layout: Samples alternate sequentially by configured channel order for each sample index.
   - Planar layout: Samples are contiguous per channel in configured channel order within the block.
 - FR-006: The system shall support configurable sample output representations:
-  - Floating-point mode: Emitting IEEE-754 32-bit floating-point (`float`) values representing physical engineering units (e.g., Volts).
+  - Floating-point mode: Emitting IEEE-754 32-bit floating-point (`float`) values representing physical engineering units.
   - Raw ADC integer mode: Emitting quantized discrete integer counts derived from the simulated analog signal using configurable ADC parameters:
-    - Reference amplitude $V_{\text{ref}}$ ($V_{\text{ref}} > 0$), defining the ADC hardware full-scale input boundary.
-    - Polarity mode: `UNIPOLAR` (input dynamic range $[0, V_{\text{ref}}]$) or `BIPOLAR` (input dynamic range $[-V_{\text{ref}}, +V_{\text{ref}}]$).
+    - Reference amplitude $A_{\text{ref}}$ ($A_{\text{ref}} > 0$), defining the ADC hardware full-scale input boundary.
+    - Polarity mode: `UNIPOLAR` (input dynamic range $[0, A_{\text{ref}}]$) or `BIPOLAR` (input dynamic range $[-A_{\text{ref}}, +A_{\text{ref}}]$).
     - Resolution / bit depth $B \in \{8, 12, 16, 24\}$ bits.
-    - Dynamic Headroom / Nominal Scaling: The configuration shall define nominal waveform amplitude $A_{\text{nominal}}$ relative to $V_{\text{ref}}$ such that $A_{\text{nominal}} < V_{\text{ref}}$ (or via an explicit `headroom_factor` / full-scale margin), reserving dynamic range above nominal peak for surges and swells before reaching the saturation boundary $V_{\text{ref}}$.
+    - Dynamic Headroom / Nominal Scaling: The configuration shall define nominal waveform amplitude $A_{\text{nominal}}$ relative to $A_{\text{ref}}$ such that $A_{\text{nominal}} < A_{\text{ref}}$ (or via an explicit `headroom_factor` / full-scale margin), reserving dynamic range above nominal peak for surges and swells before reaching the saturation boundary $A_{\text{ref}}$.
     - In-memory integer containers and alignment:
       - 8-bit: stored in 1-byte container (`uint8_t` for unipolar, `int8_t` for bipolar).
       - 12-bit: stored right-justified in 2-byte container (`uint16_t` for unipolar with bits $[15:12]$ zero-padded; `int16_t` for bipolar with bits $[15:12]$ sign-extended from bit 11).
       - 16-bit: stored in 2-byte container (`uint16_t` for unipolar, `int16_t` for bipolar).
       - 24-bit: stored right-justified in 4-byte container (`uint32_t` for unipolar with bits $[31:24]$ zero-padded; `int32_t` for bipolar with bits $[31:24]$ sign-extended from bit 23).
-    - Saturation & Clamping: Signal voltages outside the configured dynamic range shall be clamped/saturated at the minimum and maximum discrete counts without integer overflow or wrap-around.
+    - Saturation & Clamping: Signal values outside the configured dynamic range shall be clamped/saturated at the minimum and maximum discrete counts without integer overflow or wrap-around.
 - FR-007: The system shall structure the shared memory segment as a Single-Producer Single-Consumer (SPSC) lock-free ring buffer comprising a user-configurable number of slots $K$ ($2 \le K \le 6$).
 - FR-008: The shared memory segment shall include a fixed Global Control Header at offset 0 containing:
   - Active configuration fields: slot count $K$, block size $N$ (samples per channel), configured channel count, sample representation format, memory layout mode (interleaved vs planar), and configured sampling rate.
@@ -71,10 +71,10 @@ Provide embedded developers and test automation environments with a Linux-host-e
 - FR-012: The system shall accept an input configuration via a structured JSON file specifying nominal signal parameters, ADC quantization parameters, buffer geometry, IPC identifiers, and an optional deterministic disturbance event timeline.
 - FR-013: The simulator CLI shall support passing the configuration file path via `--config <path>` (or `-c <path>`), with command-line validation verifying JSON syntax and parameter ranges prior to initializing shared memory or starting signal synthesis. If validation fails, the process shall emit a descriptive error to standard error and terminate with a non-zero exit code.
 - FR-014: The system shall support a deterministic disturbance event timeline defined in the JSON configuration where events execute at specified simulation timestamps:
-  - Surge event: Injects an additive transient impulse or surge waveform into one or more specified channels with configurable start time, duration, and peak amplitude.
-  - Voltage Sag / Swell event: Modulates the nominal waveform amplitude by a configurable scaling factor (sag: $< 1.0$, swell: $> 1.0$) for a configurable duration on one or more specified channels.
+  - Surge event: Injects an additive transient impulse or surge waveform into one or more specified channels with configurable start time, duration, and non-zero (positive or negative) peak amplitude.
+  - Sag / Swell event: Modulates the nominal waveform amplitude by a configurable scaling factor (sag: $0 \le s < 1.0$, swell: $> 1.0$) for a configurable duration on one or more specified channels.
   - Frequency distortion event: Alters the fundamental frequency by applying a frequency step or ramp $(\Delta f)$ for a configurable duration synchronously across all configured channels, maintaining continuous phase across transitions without discontinuous phase jumps.
-- FR-015: Disturbance events shall support targeting an individual configured channel or all configured channels simultaneously. During disturbance injection, if the resultant instantaneous voltage exceeds the configured ADC dynamic range, the quantizer shall saturate at the ADC rail limits in accordance with FR-006.
+- FR-015: Disturbance events shall support targeting an individual configured channel or all configured channels simultaneously. During disturbance injection, if the resultant instantaneous signal value exceeds the configured ADC dynamic range, the quantizer shall saturate at the ADC rail limits in accordance with FR-006.
 
 ## Non-Functional Requirements
 
@@ -100,9 +100,9 @@ Provide embedded developers and test automation environments with a Linux-host-e
 
 - AC-001: Given a sinusoidal configuration with a configured number of channels and specified frequency, amplitude, and phase offsets, the system outputs samples exhibiting the specified phase shifts and amplitudes for every configured channel.
 - AC-002: In `float32` mode, output values match theoretical waveform values within IEEE-754 binary32 precision tolerance.
-- AC-003: In raw ADC mode, output values are correctly quantized according to the configured bit depth $B \in \{8, 12, 16, 24\}$, reference amplitude $V_{\text{ref}}$, and polarity:
-  - For `UNIPOLAR` mode, input dynamic range $[0, V_{\text{ref}}]$ maps linearly to $[0, 2^B - 1]$; values $< 0$ clamp to $0$, and values $> V_{\text{ref}}$ clamp to $2^B - 1$. Unused high bits in containers (bits $[15:12]$ for 12-bit; bits $[31:24]$ for 24-bit) are zero-extended.
-  - For `BIPOLAR` mode, input dynamic range $[-V_{\text{ref}}, +V_{\text{ref}}]$ maps linearly to $[-2^{B-1}, 2^{B-1} - 1]$; values $< -V_{\text{ref}}$ clamp to $-2^{B-1}$, and values $> +V_{\text{ref}}$ clamp to $2^{B-1} - 1$. Unused high bits in containers are sign-extended from the ADC MSB ($B-1$).
+- AC-003: In raw ADC mode, output values are correctly quantized according to the configured bit depth $B \in \{8, 12, 16, 24\}$, reference amplitude $A_{\text{ref}}$, and polarity:
+  - For `UNIPOLAR` mode, input dynamic range $[0, A_{\text{ref}}]$ maps linearly to $[0, 2^B - 1]$; values $< 0$ clamp to $0$, and values $> A_{\text{ref}}$ clamp to $2^B - 1$. Unused high bits in containers (bits $[15:12]$ for 12-bit; bits $[31:24]$ for 24-bit) are zero-extended.
+  - For `BIPOLAR` mode, input dynamic range $[-A_{\text{ref}}, +A_{\text{ref}}]$ maps linearly to $[-2^{B-1}, 2^{B-1} - 1]$; values $< -A_{\text{ref}}$ clamp to $-2^{B-1}$, and values $> +A_{\text{ref}}$ clamp to $2^{B-1} - 1$. Unused high bits in containers are sign-extended from the ADC MSB ($B-1$).
   - Sample container sizes match the specification: 1 byte for 8-bit, 2 bytes for 12-bit and 16-bit, and 4 bytes for 24-bit.
 - AC-004: When configured for block emission of size $N$, the system emits batches containing exactly $N$ samples per channel at the calculated interval $N \times T_s$.
 - AC-005: When configured for interleaved layout, samples for each sample index appear in configured channel order; when configured for planar layout, each channel's $N$ samples appear contiguously in configured channel order.
@@ -112,10 +112,10 @@ Provide embedded developers and test automation environments with a Linux-host-e
 - AC-009: If the consumer fails to advance its read pointer before the ring buffer fills, the simulator handles the overrun deterministically (increments `dropped_blocks` metric without memory corruption, deadlock, or crashing).
 - AC-010: The producer signals the OS event/semaphore after every committed slot write. A blocking consumer waiting on the OS synchronization primitive wakes up and successfully reads the newly available block without requiring a busy-polling loop.
 - AC-011: Given a configured surge event at simulation time $t_{\text{start}}$, the emitted samples for the targeted channel reflect the additive surge with peak amplitude and duration within 1 sample period ($T_s$) of the configured timeline.
-- AC-012: Given a configured voltage sag or swell event, the targeted channel amplitude scales by the specified factor during the active window, and returns to nominal amplitude upon event expiration.
+- AC-012: Given a configured sag or swell event, the targeted channel amplitude scales by the specified factor during the active window, and returns to nominal amplitude upon event expiration.
 - AC-013: Given a configured frequency distortion event, the generated waveforms track the modified frequency across all configured channels without discontinuous phase jumps or waveform tearing at transition boundaries.
-- AC-014: If an injected surge or swell stays within $V_{\text{ref}}$, raw ADC output codes proportionally track the increased voltage within the reserved headroom without saturation. If the disturbance voltage exceeds $V_{\text{ref}}$ (or falls below $V_{\text{min}}$), output codes clamp to the respective extreme counts ($0$ or $2^B - 1$ for unipolar; $-2^{B-1}$ or $2^{B-1} - 1$ for bipolar) without numerical wrapping.
-- AC-015: When launched with an invalid JSON configuration or out-of-range parameters (e.g., negative frequency, unknown polarity, invalid bit depth, or nominal amplitude plus offset exceeding $V_{\text{ref}}$ without headroom), the simulator fails fast before allocating shared memory, emits an error to `stderr`, and exits with a non-zero code.
+- AC-014: If an injected surge or swell stays within $A_{\text{ref}}$, raw ADC output codes proportionally track the increased signal value within the reserved headroom without saturation. If the disturbance signal exceeds $A_{\text{ref}}$ (or falls below $A_{\text{min}}$), output codes clamp to the respective extreme counts ($0$ or $2^B - 1$ for unipolar; $-2^{B-1}$ or $2^{B-1} - 1$ for bipolar) without numerical wrapping.
+- AC-015: When launched with an invalid JSON configuration or out-of-range parameters (e.g., negative frequency, unknown polarity, invalid bit depth, or nominal amplitude plus offset exceeding $A_{\text{ref}}$ without headroom), the simulator fails fast before allocating shared memory, emits an error to `stderr`, and exits with a non-zero code.
 
 ## Verification Notes
 

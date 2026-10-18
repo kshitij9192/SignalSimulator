@@ -21,7 +21,7 @@ struct alignas(8) GlobalControlHeader
     ChannelDataLayout Layout = ChannelDataLayout::Interleaved;
     AdcPolarity Polarity = AdcPolarity::Bipolar;
     std::uint32_t AdcResolutionBits = 0;
-    double AdcReferenceVoltageV = 0.0;
+    double AdcReferenceAmplitude = 0.0;
     std::atomic<std::uint64_t> WriteSeq{0};
     std::atomic<std::uint64_t> ReadSeq{0};
     std::atomic<std::uint64_t> DroppedBlocks{0};

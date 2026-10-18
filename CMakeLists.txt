@@ -20,26 +20,65 @@ if(NOT TARGET nlohmann_json::nlohmann_json)
     FetchContent_MakeAvailable(nlohmann_json)
 endif()
 
+if(BUILD_TESTING)
+    find_package(Catch2 3.16.1 CONFIG QUIET)
+
+    if(NOT TARGET Catch2::Catch2WithMain)
+        include(FetchContent)
+
+        FetchContent_Declare(
+            Catch2
+            URL https://github.com/catchorg/Catch2/archive/refs/tags/v3.16.1.tar.gz
+            URL_HASH SHA256=d16bd1b8b2364918bd472cb216394acb93bde6784890df0d91bccfb3f28d777d
+            DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+        )
+        FetchContent_MakeAvailable(Catch2)
+    endif()
+
+    include(Catch)
+endif()
+
 option(SIGNAL_SIMULATOR_ENABLE_CLANG_TIDY "Run clang-tidy during C++ compilation" OFF)
 if(SIGNAL_SIMULATOR_ENABLE_CLANG_TIDY)
     find_program(CLANG_TIDY_EXECUTABLE NAMES clang-tidy REQUIRED)
-    set(CMAKE_CXX_CLANG_TIDY
+    set(SIGNAL_SIMULATOR_CLANG_TIDY_COMMAND
         "${CLANG_TIDY_EXECUTABLE};--experimental-custom-checks"
     )
 endif()
 
 set(SIGNAL_SIMULATOR_CPP_SOURCES
+    src/AdcSampleQuantizer.cpp
+    src/BlockAssembler.cpp
+    src/Float32SampleQuantizer.cpp
+    src/FrequencyDisturbanceGenerator.cpp
     src/Main.cpp
     src/MemoryHandler.cpp
     src/OsAbstractions.cpp
+    src/OutputGenerator.cpp
+    src/SagDisturbanceGenerator.cpp
+    src/SineSignalGenerator.cpp
+    src/SurgeDisturbanceGenerator.cpp
+    src/SwellDisturbanceGenerator.cpp
 )
 set(SIGNAL_SIMULATOR_CXX_SOURCES
     ${SIGNAL_SIMULATOR_CPP_SOURCES}
+    src/AdcSampleQuantizer.h
+    src/BlockAssembler.h
     src/Config.h
     src/ConfigParser.cpp
     src/ConfigParser.h
+    src/Float32SampleQuantizer.h
+    src/FrequencyDisturbanceGenerator.h
+    src/IDisturbanceGenerator.h
+    src/ISampleQuantizer.h
+    src/ISignalGenerator.h
     src/MemoryHandler.h
     src/OsAbstractions.h
+    src/OutputGenerator.h
+    src/SagDisturbanceGenerator.h
+    src/SineSignalGenerator.h
+    src/SurgeDisturbanceGenerator.h
+    src/SwellDisturbanceGenerator.h
 )
 
 add_library(signal_simulator_config src/ConfigParser.cpp src/ConfigParser.h)
@@ -47,8 +86,47 @@ target_compile_features(signal_simulator_config PUBLIC cxx_std_17)
 target_include_directories(signal_simulator_config PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(signal_simulator_config PUBLIC nlohmann_json::nlohmann_json)
 
-add_executable(signal_simulator ${SIGNAL_SIMULATOR_CPP_SOURCES} src/MemoryHandler.h src/OsAbstractions.h)
+add_executable(signal_simulator
+    ${SIGNAL_SIMULATOR_CPP_SOURCES}
+    src/AdcSampleQuantizer.h
+    src/BlockAssembler.h
+    src/Float32SampleQuantizer.h
+    src/FrequencyDisturbanceGenerator.h
+    src/IDisturbanceGenerator.h
+    src/ISampleQuantizer.h
+    src/ISignalGenerator.h
+    src/MemoryHandler.h
+    src/OsAbstractions.h
+    src/OutputGenerator.h
+    src/SagDisturbanceGenerator.h
+    src/SineSignalGenerator.h
+    src/SurgeDisturbanceGenerator.h
+    src/SwellDisturbanceGenerator.h
+)
 target_link_libraries(signal_simulator PRIVATE signal_simulator_config)
+
+if(SIGNAL_SIMULATOR_ENABLE_CLANG_TIDY)
+    set_target_properties(signal_simulator_config signal_simulator
+        PROPERTIES
+            CXX_CLANG_TIDY "${SIGNAL_SIMULATOR_CLANG_TIDY_COMMAND}"
+    )
+endif()
+
+if(BUILD_TESTING)
+    set(SIGNAL_SIMULATOR_TEST_SOURCES
+        test/TestConfigParser.cpp
+    )
+
+    add_executable(signal_simulator_tests ${SIGNAL_SIMULATOR_TEST_SOURCES})
+    target_link_libraries(signal_simulator_tests
+        PRIVATE
+            signal_simulator_config
+            Catch2::Catch2WithMain
+    )
+    catch_discover_tests(signal_simulator_tests
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+    )
+endif()
 
 find_program(CLANG_FORMAT_EXECUTABLE NAMES clang-format)
 if(CLANG_FORMAT_EXECUTABLE)

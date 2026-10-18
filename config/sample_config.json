@@ -3,19 +3,16 @@
     "signal": {
         "waveform": "sine",
         "frequency_hz": 50.0,
-        "nominal_amplitude_v": 3.3,
-        "offset_v": 0.0,
+        "nominal_amplitude": 3.3,
+        "offset": 0.0,
         "channels": [
             {
-                "id": "A",
                 "phase_deg": 0.0
             },
             {
-                "id": "B",
                 "phase_deg": 120.0
             },
             {
-                "id": "C",
                 "phase_deg": 240.0
             }
         ]
@@ -27,7 +24,7 @@
         "representation": "adc_integer",
         "layout": "interleaved",
         "adc": {
-            "reference_voltage_v": 5.0,
+            "reference_amplitude": 5.0,
             "polarity": "bipolar",
             "resolution_bits": 16
         }
@@ -49,22 +46,22 @@
             "type": "surge",
             "start_time_ns": 100000000,
             "duration_ns": 2000000,
-            "target_channels": ["A"],
+            "target_channels": [0],
             "shape": "half_sine",
-            "peak_amplitude_v": 1.5
+            "peak_amplitude": 1.5
         },
         {
-            "type": "voltage_sag",
+            "type": "sag",
             "start_time_ns": 200000000,
             "duration_ns": 100000000,
-            "target_channels": ["B"],
+            "target_channels": [1],
             "scaling_factor": 0.65
         },
         {
-            "type": "voltage_swell",
+            "type": "swell",
             "start_time_ns": 400000000,
             "duration_ns": 100000000,
-            "target_channels": ["A", "B", "C"],
+            "target_channels": [0, 1, 2],
             "scaling_factor": 1.25
         },
         {

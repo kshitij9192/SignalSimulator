@@ -4,8 +4,6 @@
 
 #include <nlohmann/json_fwd.hpp>
 
-#include <set>
-
 class ConfigParser final
 {
   public:
@@ -28,30 +26,25 @@ class ConfigParser final
     static std::uint64_t ParseEventStartTime(const Json& rEvent, const std::string& rPath);
     static std::uint64_t ParseEventDurationNanoseconds(const Json& rEvent, std::uint64_t StartTimeNs,
                                                        const std::string& rPath);
-    static std::vector<std::string> ParseEventTargetChannels(
-        const Json& rEvent, const std::set<std::string>& rChannelIds, const std::string& rPath);
+    static std::vector<std::size_t> ParseEventTargetChannels(const Json& rEvent,
+                                                             std::size_t ChannelCount,
+                                                             const std::string& rPath);
     static DisturbanceEvent ParseDisturbanceEvent(const Json& rEvent, std::size_t Index,
-                                                  const std::set<std::string>& rChannelIds,
-                                                  double FrequencyHz);
+                                                  std::size_t ChannelCount, double FrequencyHz);
     static SurgeEvent ParseSurgeEvent(const Json& rEvent, std::uint64_t StartTimeNs,
-                                      std::uint64_t DurationNs,
-                                      const std::set<std::string>& rChannelIds,
+                                      std::uint64_t DurationNs, std::size_t ChannelCount,
                                       const std::string& rPath);
-    static VoltageSagEvent ParseVoltageSagEvent(const Json& rEvent, std::uint64_t StartTimeNs,
-                                                std::uint64_t DurationNs,
-                                                const std::set<std::string>& rChannelIds,
-                                                const std::string& rPath);
-    static VoltageSwellEvent ParseVoltageSwellEvent(const Json& rEvent, std::uint64_t StartTimeNs,
-                                                    std::uint64_t DurationNs,
-                                                    const std::set<std::string>& rChannelIds,
-                                                    const std::string& rPath);
+    static SagEvent ParseSagEvent(const Json& rEvent, std::uint64_t StartTimeNs,
+                                  std::uint64_t DurationNs, std::size_t ChannelCount,
+                                  const std::string& rPath);
+    static SwellEvent ParseSwellEvent(const Json& rEvent, std::uint64_t StartTimeNs,
+                                      std::uint64_t DurationNs, std::size_t ChannelCount,
+                                      const std::string& rPath);
     static FrequencyDistortionEvent ParseFrequencyDistortionEvent(
         const Json& rEvent, std::uint64_t StartTimeNs, std::uint64_t DurationNs,
         double FrequencyHz, const std::string& rPath);
-    static void ParseSignalConfiguration(const Json& rRoot, SimulatorConfig& rConfig,
-                                         std::set<std::string>& rChannelIds);
-    static void ParseChannelConfigurations(const Json& rSignal, SimulatorConfig& rConfig,
-                                           std::set<std::string>& rChannelIds);
+    static void ParseSignalConfiguration(const Json& rRoot, SimulatorConfig& rConfig);
+    static void ParseChannelConfigurations(const Json& rSignal, SimulatorConfig& rConfig);
     static void ParseSamplingConfiguration(const Json& rRoot, SimulatorConfig& rConfig);
     static void ParseOutputConfiguration(const Json& rRoot, SimulatorConfig& rConfig);
     static void ParseOutputRepresentationAndLayout(const Json& rOutput, SimulatorConfig& rConfig);
@@ -61,8 +54,7 @@ class ConfigParser final
     static void ParseIpcConfiguration(const Json& rRoot, SimulatorConfig& rConfig);
     static void ParseNotificationConfiguration(const Json& rIpc, SimulatorConfig& rConfig);
     static void ValidateNominalSignalWithinAdcRange(const SimulatorConfig& rConfig);
-    static void ParseDisturbanceTimeline(const Json& rRoot, SimulatorConfig& rConfig,
-                                         const std::set<std::string>& rChannelIds);
+    static void ParseDisturbanceTimeline(const Json& rRoot, SimulatorConfig& rConfig);
     static SimulatorConfig ExtractAndValidateJson(const Json& rRoot);
     static SimulatorConfig TryParsingJson(const Json& rDocument);
 };

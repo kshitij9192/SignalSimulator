@@ -24,8 +24,8 @@ class SignalGenerator {
     Routes generated data to OutputAssembler
 }
 
-class DistortionGenerator {
-    .. Responsiblity ..
+class DisturbanceGenerator {
+    .. Responsibility ..
     Generate the configured disturbance aka distortion, sag/swell.
 }
 
@@ -35,15 +35,15 @@ class OutputAssembler {
 }
 
 
-interface SingalGeneratorInterface {
+interface ISignalGenerator {
     --
-    GenerateSignal(): void
+    GenerateSample(): void
 }
 
-interface DistortionGeneratorInterface
+interface IDisturbanceGenerator
 {
     --
-    GenerateDistortion(): void
+    EvaluateDisturbance(): void
 }
 
 @enduml

@@ -115,8 +115,8 @@ std::uint64_t ConfigParser::ParseEventDurationNanoseconds(const Json& rEvent, st
 }
 
 
-std::vector<std::string> ConfigParser::ParseEventTargetChannels(const Json& rEvent,
-                                                                const std::set<std::string>& rChannelIds,
+std::vector<std::size_t> ConfigParser::ParseEventTargetChannels(const Json& rEvent,
+                                                                std::size_t ChannelCount,
                                                                 const std::string& rPath)
 {
     const Json& Targets = FindKeyInJson(rEvent, "target_channels", rPath);
@@ -125,34 +125,30 @@ std::vector<std::string> ConfigParser::ParseEventTargetChannels(const Json& rEve
         ThrowConfigError(rPath + ".target_channels", "expected a non-empty array");
     }
 
-    std::set<std::string> UniqueTargets;
-    std::vector<std::string> Result;
+    std::set<std::size_t> UniqueTargets;
+    std::vector<std::size_t> Result;
     for (std::size_t Index = 0; Index < Targets.size(); ++Index)
     {
-        const std::string Target =
-            ToStringValue(Targets[Index], rPath + ".target_channels[" + std::to_string(Index) + "]");
-        if (Target.empty())
+        const std::size_t TargetChannel =
+            ToSizeTValue(Targets[Index], rPath + ".target_channels[" + std::to_string(Index) + "]");
+        if (!UniqueTargets.insert(TargetChannel).second)
         {
-            ThrowConfigError(rPath + ".target_channels[" + std::to_string(Index) + "]",
-                             "must not be empty");
+            ThrowConfigError(rPath + ".target_channels", "channel indices must be unique");
         }
-        if (!UniqueTargets.insert(Target).second)
+        if (TargetChannel >= ChannelCount)
         {
-            ThrowConfigError(rPath + ".target_channels", "channel IDs must be unique");
+            ThrowConfigError(rPath + ".target_channels",
+                             "references out-of-range channel index " +
+                                 std::to_string(TargetChannel));
         }
-        if (rChannelIds.find(Target) == rChannelIds.end())
-        {
-            ThrowConfigError(rPath + ".target_channels", "references unknown channel '" + Target + "'");
-        }
-        Result.push_back(Target);
+        Result.push_back(TargetChannel);
     }
     return Result;
 }
 
 
 DisturbanceEvent ConfigParser::ParseDisturbanceEvent(const Json& rEvent, std::size_t Index,
-                                                     const std::set<std::string>& rChannelIds,
-                                                     double FrequencyHz)
+                                                     std::size_t ChannelCount, double FrequencyHz)
 {
     const std::string Path = "disturbance_timeline[" + std::to_string(Index) + "]";
     const std::string Type = ToStringValue(FindKeyInJson(rEvent, "type", Path), Path + ".type");
@@ -161,17 +157,17 @@ DisturbanceEvent ConfigParser::ParseDisturbanceEvent(const Json& rEvent, std::si
 
     if (Type == "surge")
     {
-        return ParseSurgeEvent(rEvent, StartTimeNs, DurationNs, rChannelIds, Path);
+        return ParseSurgeEvent(rEvent, StartTimeNs, DurationNs, ChannelCount, Path);
     }
 
-    if (Type == "voltage_sag")
+    if (Type == "sag")
     {
-        return ParseVoltageSagEvent(rEvent, StartTimeNs, DurationNs, rChannelIds, Path);
+        return ParseSagEvent(rEvent, StartTimeNs, DurationNs, ChannelCount, Path);
     }
 
-    if (Type == "voltage_swell")
+    if (Type == "swell")
     {
-        return ParseVoltageSwellEvent(rEvent, StartTimeNs, DurationNs, rChannelIds, Path);
+        return ParseSwellEvent(rEvent, StartTimeNs, DurationNs, ChannelCount, Path);
     }
 
     if (Type == "frequency_distortion")
@@ -179,49 +175,49 @@ DisturbanceEvent ConfigParser::ParseDisturbanceEvent(const Json& rEvent, std::si
         return ParseFrequencyDistortionEvent(rEvent, StartTimeNs, DurationNs, FrequencyHz, Path);
     }
 
-    ThrowConfigError(Path + ".type", "must be 'surge', 'voltage_sag', 'voltage_swell', or 'frequency_distortion'");
+    ThrowConfigError(Path + ".type", "must be 'surge', 'sag', 'swell', or 'frequency_distortion'");
 }
 
 
 SurgeEvent ConfigParser::ParseSurgeEvent(const Json& rEvent, std::uint64_t StartTimeNs,
-                                         std::uint64_t DurationNs,
-                                         const std::set<std::string>& rChannelIds,
+                                         std::uint64_t DurationNs, std::size_t ChannelCount,
                                          const std::string& rPath)
 {
     RequireJsonFieldEquals(rEvent, "shape", "half_sine", rPath);
-    const double PeakAmplitudeV = ToNumericValue(
-        FindKeyInJson(rEvent, "peak_amplitude_v", rPath), rPath + ".peak_amplitude_v");
-    if (PeakAmplitudeV <= 0.0)
+    const double PeakAmplitude = ToNumericValue(
+        FindKeyInJson(rEvent, "peak_amplitude", rPath), rPath + ".peak_amplitude");
+    if (!std::isfinite(PeakAmplitude) || PeakAmplitude == 0.0)
     {
-        ThrowConfigError(rPath + ".peak_amplitude_v", "must be greater than zero");
+        ThrowConfigError(rPath + ".peak_amplitude", "must be non-zero");
     }
     return SurgeEvent{StartTimeNs, DurationNs,
-                      ParseEventTargetChannels(rEvent, rChannelIds, rPath), PeakAmplitudeV};
+                      ParseEventTargetChannels(rEvent, ChannelCount, rPath), PeakAmplitude};
 }
 
 
-VoltageSagEvent ConfigParser::ParseVoltageSagEvent(const Json& rEvent,
-                                                   std::uint64_t StartTimeNs,
-                                                   std::uint64_t DurationNs,
-                                                   const std::set<std::string>& rChannelIds,
-                                                   const std::string& rPath)
+SagEvent ConfigParser::ParseSagEvent(const Json& rEvent,
+                                     std::uint64_t StartTimeNs,
+                                     std::uint64_t DurationNs,
+                                     std::size_t ChannelCount,
+                                     const std::string& rPath)
 {
     const double ScalingFactor = ToNumericValue(
         FindKeyInJson(rEvent, "scaling_factor", rPath), rPath + ".scaling_factor");
-    if (ScalingFactor <= 0.0 || ScalingFactor >= 1.0)
+    if (ScalingFactor < 0.0 || ScalingFactor >= 1.0)
     {
-        ThrowConfigError(rPath + ".scaling_factor", "must be greater than 0 and less than 1");
+        ThrowConfigError(rPath + ".scaling_factor",
+                         "must be greater than or equal to 0 and less than 1");
     }
-    return VoltageSagEvent{StartTimeNs, DurationNs,
-                           ParseEventTargetChannels(rEvent, rChannelIds, rPath), ScalingFactor};
+    return SagEvent{StartTimeNs, DurationNs,
+                    ParseEventTargetChannels(rEvent, ChannelCount, rPath), ScalingFactor};
 }
 
 
-VoltageSwellEvent ConfigParser::ParseVoltageSwellEvent(const Json& rEvent,
-                                                       std::uint64_t StartTimeNs,
-                                                       std::uint64_t DurationNs,
-                                                       const std::set<std::string>& rChannelIds,
-                                                       const std::string& rPath)
+SwellEvent ConfigParser::ParseSwellEvent(const Json& rEvent,
+                                         std::uint64_t StartTimeNs,
+                                         std::uint64_t DurationNs,
+                                         std::size_t ChannelCount,
+                                         const std::string& rPath)
 {
     const double ScalingFactor = ToNumericValue(
         FindKeyInJson(rEvent, "scaling_factor", rPath), rPath + ".scaling_factor");
@@ -229,8 +225,8 @@ VoltageSwellEvent ConfigParser::ParseVoltageSwellEvent(const Json& rEvent,
     {
         ThrowConfigError(rPath + ".scaling_factor", "must be greater than 1");
     }
-    return VoltageSwellEvent{StartTimeNs, DurationNs,
-                             ParseEventTargetChannels(rEvent, rChannelIds, rPath), ScalingFactor};
+    return SwellEvent{StartTimeNs, DurationNs,
+                      ParseEventTargetChannels(rEvent, ChannelCount, rPath), ScalingFactor};
 }
 
 
@@ -278,9 +274,7 @@ void ConfigParser::ValidateSchemaReference(const Json& rRoot)
 }
 
 
-void ConfigParser::ParseSignalConfiguration(const Json& rRoot,
-                                            SimulatorConfig& rConfig,
-                                            std::set<std::string>& rChannelIds)
+void ConfigParser::ParseSignalConfiguration(const Json& rRoot, SimulatorConfig& rConfig)
 {
     const Json& Signal = FindKeyInJson(rRoot, "signal", "$");
     RequireJsonFieldEquals(Signal, "waveform", "sine", "signal");
@@ -291,21 +285,19 @@ void ConfigParser::ParseSignalConfiguration(const Json& rRoot,
         ThrowConfigError("signal.frequency_hz", "must be greater than zero");
     }
 
-    rConfig.NominalAmplitudeV = ToNumericValue(FindKeyInJson(Signal, "nominal_amplitude_v", "signal"), "signal.nominal_amplitude_v");
-    if (rConfig.NominalAmplitudeV < 0.0)
+    rConfig.NominalAmplitude = ToNumericValue(FindKeyInJson(Signal, "nominal_amplitude", "signal"), "signal.nominal_amplitude");
+    if (rConfig.NominalAmplitude < 0.0)
     {
-        ThrowConfigError("signal.nominal_amplitude_v", "must not be negative");
+        ThrowConfigError("signal.nominal_amplitude", "must not be negative");
     }
 
-    rConfig.OffsetV = ToNumericValue(FindKeyInJson(Signal, "offset_v", "signal"), "signal.offset_v");
+    rConfig.Offset = ToNumericValue(FindKeyInJson(Signal, "offset", "signal"), "signal.offset");
 
-    ParseChannelConfigurations(Signal, rConfig, rChannelIds);
+    ParseChannelConfigurations(Signal, rConfig);
 }
 
 
-void ConfigParser::ParseChannelConfigurations(const Json& rSignal,
-                                              SimulatorConfig& rConfig,
-                                              std::set<std::string>& rChannelIds)
+void ConfigParser::ParseChannelConfigurations(const Json& rSignal, SimulatorConfig& rConfig)
 {
     const Json& Channels = FindKeyInJson(rSignal, "channels", "signal");
 
@@ -318,19 +310,9 @@ void ConfigParser::ParseChannelConfigurations(const Json& rSignal,
     {
         const Json& Channel = Channels[Index];
         const std::string Path = "signal.channels[" + std::to_string(Index) + "]";
-        const std::string Id = ToStringValue(FindKeyInJson(Channel, "id", Path), Path + ".id");
-        if (Id.empty())
-        {
-            ThrowConfigError(Path + ".id", "must not be empty");
-        }
-
-        if (!rChannelIds.insert(Id).second)
-        {
-            ThrowConfigError(Path + ".id", "channel IDs must be unique");
-        }
-
-        const double PhaseDegrees = ToNumericValue(FindKeyInJson(Channel, "phase_deg", Path), Path + ".phase_deg");
-        rConfig.Channels.push_back(ChannelConfig{Id, PhaseDegrees});
+        const double PhaseDegrees =
+            ToNumericValue(FindKeyInJson(Channel, "phase_deg", Path), Path + ".phase_deg");
+        rConfig.Channels.push_back(ChannelConfig{Index, PhaseDegrees});
     }
 }
 
@@ -412,12 +394,12 @@ void ConfigParser::ParseAdcConfiguration(const Json& rOutput, SimulatorConfig& r
 {
     const Json& Adc = FindKeyInJson(rOutput, "adc", "output");
     AdcConfig AdcSettings;
-    AdcSettings.ReferenceVoltageV = ToNumericValue(
-        FindKeyInJson(Adc, "reference_voltage_v", "output.adc"),
-        "output.adc.reference_voltage_v");
-    if (AdcSettings.ReferenceVoltageV <= 0.0)
+    AdcSettings.ReferenceAmplitude = ToNumericValue(
+        FindKeyInJson(Adc, "reference_amplitude", "output.adc"),
+        "output.adc.reference_amplitude");
+    if (AdcSettings.ReferenceAmplitude <= 0.0)
     {
-        ThrowConfigError("output.adc.reference_voltage_v", "must be greater than zero");
+        ThrowConfigError("output.adc.reference_amplitude", "must be greater than zero");
     }
     const std::string Polarity =
         ToStringValue(FindKeyInJson(Adc, "polarity", "output.adc"), "output.adc.polarity");
@@ -468,7 +450,7 @@ void ConfigParser::ParseBufferConfiguration(const Json& rRoot, SimulatorConfig& 
 
 void ConfigParser::ValidateSamplePayloadSize(const SimulatorConfig& rConfig)
 {
-    const std::size_t BytesPerSample = !rConfig.Adc.has_value() ? 4 : (rConfig.Adc->ResolutionBits == 8 ? 1 : (rConfig.Adc->ResolutionBits <= 16 ? 2 : 4));
+    const std::size_t BytesPerSample = rConfig.GetBytesPerSample();
     const std::size_t MaxSize = std::numeric_limits<std::size_t>::max();
     const std::size_t ChannelCount = rConfig.Channels.size();
     if (ChannelCount == 0 || rConfig.BlockSizeSamplesPerChannel > MaxSize / ChannelCount ||
@@ -518,26 +500,25 @@ void ConfigParser::ValidateNominalSignalWithinAdcRange(const SimulatorConfig& rC
         return;
     }
 
-    const double LowerVoltage = rConfig.OffsetV - rConfig.NominalAmplitudeV;
-    const double UpperVoltage = rConfig.OffsetV + rConfig.NominalAmplitudeV;
+    const double LowerValue = rConfig.Offset - rConfig.NominalAmplitude;
+    const double UpperValue = rConfig.Offset + rConfig.NominalAmplitude;
     if (rConfig.Adc->Polarity == AdcPolarity::Bipolar)
     {
-        const double PeakEnvelope = std::abs(rConfig.OffsetV) + rConfig.NominalAmplitudeV;
-        if (!std::isfinite(PeakEnvelope) || PeakEnvelope > rConfig.Adc->ReferenceVoltageV)
+        const double PeakEnvelope = std::abs(rConfig.Offset) + rConfig.NominalAmplitude;
+        if (!std::isfinite(PeakEnvelope) || PeakEnvelope > rConfig.Adc->ReferenceAmplitude)
         {
             ThrowConfigError("signal", "nominal waveform exceeds the bipolar ADC range");
         }
     }
-    else if (!std::isfinite(LowerVoltage) || !std::isfinite(UpperVoltage) ||
-             LowerVoltage < 0.0 || UpperVoltage > rConfig.Adc->ReferenceVoltageV)
+    else if (!std::isfinite(LowerValue) || !std::isfinite(UpperValue) ||
+             LowerValue < 0.0 || UpperValue > rConfig.Adc->ReferenceAmplitude)
     {
         ThrowConfigError("signal", "nominal waveform exceeds the unipolar ADC range");
     }
 }
 
 
-void ConfigParser::ParseDisturbanceTimeline(const Json& rRoot, SimulatorConfig& rConfig,
-                                            const std::set<std::string>& rChannelIds)
+void ConfigParser::ParseDisturbanceTimeline(const Json& rRoot, SimulatorConfig& rConfig)
 {
     if (!rRoot.contains("disturbance_timeline"))
     {
@@ -548,10 +529,11 @@ void ConfigParser::ParseDisturbanceTimeline(const Json& rRoot, SimulatorConfig& 
     {
         ThrowConfigError("disturbance_timeline", "expected an array");
     }
+    const std::size_t ChannelCount = rConfig.Channels.size();
     for (std::size_t Index = 0; Index < Timeline.size(); ++Index)
     {
         rConfig.DisturbanceTimeline.push_back(
-            ParseDisturbanceEvent(Timeline[Index], Index, rChannelIds, rConfig.FrequencyHz));
+            ParseDisturbanceEvent(Timeline[Index], Index, ChannelCount, rConfig.FrequencyHz));
     }
 }
 
@@ -561,14 +543,13 @@ SimulatorConfig ConfigParser::ExtractAndValidateJson(const Json& rRoot)
     ValidateSchemaReference(rRoot);
 
     SimulatorConfig Config;
-    std::set<std::string> ChannelIds;
-    ParseSignalConfiguration(rRoot, Config, ChannelIds);
+    ParseSignalConfiguration(rRoot, Config);
     ParseSamplingConfiguration(rRoot, Config);
     ParseOutputConfiguration(rRoot, Config);
     ParseBufferConfiguration(rRoot, Config);
     ParseIpcConfiguration(rRoot, Config);
     ValidateNominalSignalWithinAdcRange(Config);
-    ParseDisturbanceTimeline(rRoot, Config, ChannelIds);
+    ParseDisturbanceTimeline(rRoot, Config);
     return Config;
 }
 

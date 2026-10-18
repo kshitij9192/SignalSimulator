@@ -23,8 +23,8 @@
       "required": [
         "waveform",
         "frequency_hz",
-        "nominal_amplitude_v",
-        "offset_v",
+        "nominal_amplitude",
+        "offset",
         "channels"
       ],
       "additionalProperties": false,
@@ -38,19 +38,19 @@
           "exclusiveMinimum": 0,
           "description": "Nominal fundamental frequency in hertz."
         },
-        "nominal_amplitude_v": {
+        "nominal_amplitude": {
           "type": "number",
           "minimum": 0,
-          "description": "Nominal peak amplitude in volts, before disturbances."
+          "description": "Nominal peak amplitude before disturbances."
         },
-        "offset_v": {
+        "offset": {
           "type": "number",
-          "description": "Constant waveform offset in volts."
+          "description": "Constant waveform offset."
         },
         "channels": {
           "type": "array",
           "minItems": 1,
-          "description": "One or more channels. Each channel ID must be unique.",
+          "description": "One or more channels, indexed by their 0-based position in this array.",
           "items": {
             "$ref": "#/$defs/channel"
           }
@@ -78,7 +78,7 @@
       "properties": {
         "representation": {
           "enum": ["float32", "adc_integer"],
-          "description": "IEEE-754 binary32 voltage samples or quantized ADC integer codes."
+          "description": "IEEE-754 binary32 engineering-unit samples or quantized ADC integer codes."
         },
         "layout": {
           "enum": ["interleaved", "planar"],
@@ -88,20 +88,20 @@
           "type": "object",
           "description": "Quantizer settings. Required only for adc_integer output.",
           "required": [
-            "reference_voltage_v",
+            "reference_amplitude",
             "polarity",
             "resolution_bits"
           ],
           "additionalProperties": false,
           "properties": {
-            "reference_voltage_v": {
+            "reference_amplitude": {
               "type": "number",
               "exclusiveMinimum": 0,
-              "description": "ADC full-scale reference voltage in volts."
+              "description": "ADC full-scale reference amplitude."
             },
             "polarity": {
               "enum": ["unipolar", "bipolar"],
-              "description": "unipolar maps [0, Vref]; bipolar maps [-Vref, +Vref]."
+              "description": "unipolar maps [0, Aref]; bipolar maps [-Aref, +Aref]."
             },
             "resolution_bits": {
               "enum": [8, 12, 16, 24],
@@ -202,10 +202,10 @@
             "$ref": "#/$defs/surgeEvent"
           },
           {
-            "$ref": "#/$defs/voltageSagEvent"
+            "$ref": "#/$defs/sagEvent"
           },
           {
-            "$ref": "#/$defs/voltageSwellEvent"
+            "$ref": "#/$defs/swellEvent"
           },
           {
             "$ref": "#/$defs/frequencyDistortionEvent"
@@ -217,14 +217,9 @@
   "$defs": {
     "channel": {
       "type": "object",
-      "required": ["id", "phase_deg"],
+      "required": ["phase_deg"],
       "additionalProperties": false,
       "properties": {
-        "id": {
-          "type": "string",
-          "minLength": 1,
-          "description": "Unique channel identifier, also used by targeted events."
-        },
         "phase_deg": {
           "type": "number",
           "description": "Channel phase displacement in degrees."
@@ -245,10 +240,10 @@
       "type": "array",
       "minItems": 1,
       "uniqueItems": true,
-      "description": "One or more configured channel IDs affected by this event.",
+      "description": "One or more 0-based channel indices affected by this event.",
       "items": {
-        "type": "string",
-        "minLength": 1
+        "type": "integer",
+        "minimum": 0
       }
     },
     "surgeEvent": {
@@ -259,7 +254,7 @@
         "duration_ns",
         "target_channels",
         "shape",
-        "peak_amplitude_v"
+        "peak_amplitude"
       ],
       "additionalProperties": false,
       "properties": {
@@ -279,14 +274,16 @@
           "const": "half_sine",
           "description": "Additive half-sine transient, peaking halfway through its duration."
         },
-        "peak_amplitude_v": {
+        "peak_amplitude": {
           "type": "number",
-          "exclusiveMinimum": 0,
-          "description": "Peak additive surge amplitude in volts."
+          "not": {
+            "const": 0
+          },
+          "description": "Non-zero peak additive surge amplitude (positive or negative)."
         }
       }
     },
-    "voltageSagEvent": {
+    "sagEvent": {
       "type": "object",
       "required": [
         "type",
@@ -298,7 +295,7 @@
       "additionalProperties": false,
       "properties": {
         "type": {
-          "const": "voltage_sag"
+          "const": "sag"
         },
         "start_time_ns": {
           "$ref": "#/$defs/eventStartTime"
@@ -311,13 +308,13 @@
         },
         "scaling_factor": {
           "type": "number",
-          "exclusiveMinimum": 0,
+          "minimum": 0,
           "exclusiveMaximum": 1,
-          "description": "Amplitude multiplier below one."
+          "description": "Amplitude multiplier in [0, 1)."
         }
       }
     },
-    "voltageSwellEvent": {
+    "swellEvent": {
       "type": "object",
       "required": [
         "type",
@@ -329,7 +326,7 @@
       "additionalProperties": false,
       "properties": {
         "type": {
-          "const": "voltage_swell"
+          "const": "swell"
         },
         "start_time_ns": {
           "$ref": "#/$defs/eventStartTime"
