@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    name: Build, Format Check, and Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Ensure clang-format is available
+        run: |
+          if ! command -v clang-format >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y clang-format
+          fi
+
+      - name: Configure CMake
+        run: cmake -S . -B build
+
+      - name: Check formatting in src folder
+        run: cmake --build build --target format-check
+
+      - name: Build signal_simulator target
+        run: cmake --build build --target signal_simulator --parallel
+
+      - name: Build and run signal_simulator_tests
+        run: |
+          cmake --build build --target signal_simulator_tests --parallel
+          ctest --test-dir build --output-on-failure
