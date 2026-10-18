@@ -1,4 +1,4 @@
-#include "OutputGenerator.h"
+#include "output/OutputGenerator.h"
 
 OutputGenerator::OutputGenerator(
     const SimulatorConfig& rConfig, ISignalGenerator& rSignalGenerator,

@@ -1,27 +1,24 @@
-#include "OsAbstractions.h"
+#include "platform/LinuxOsAbstractions.h"
 
 #include <cerrno>
-#include <stdexcept>
-#include <system_error>
-
-#if defined(__linux__)
 #include <fcntl.h>
+#include <stdexcept>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <system_error>
 #include <unistd.h>
-#endif
 
-OsAbstractions::OsAbstractions() = default;
+LinuxOsAbstractions::LinuxOsAbstractions() = default;
 
 
-OsAbstractions::~OsAbstractions()
+LinuxOsAbstractions::~LinuxOsAbstractions()
 {
     ReleaseSharedMemory();
 }
 
 
-void* OsAbstractions::CreateAndMapMemory(const std::string& rName, std::size_t SizeBytes)
+void* LinuxOsAbstractions::CreateAndMapMemory(const std::string& rName, std::size_t SizeBytes)
 {
     if (m_IsMapped)
     {
@@ -35,7 +32,8 @@ void* OsAbstractions::CreateAndMapMemory(const std::string& rName, std::size_t S
 
     if (rName.empty() || rName.find('\0') != std::string::npos)
     {
-        throw std::invalid_argument("shared memory name must not be empty or contain null characters");
+        throw std::invalid_argument(
+            "shared memory name must not be empty or contain null characters");
     }
 
     if (SizeBytes == 0)
@@ -43,16 +41,16 @@ void* OsAbstractions::CreateAndMapMemory(const std::string& rName, std::size_t S
         throw std::invalid_argument("shared memory size must be greater than zero");
     }
 
-#if defined(__linux__)
     if (rName.size() < 2 || rName.front() != '/' || rName.find('/', 1) != std::string::npos)
     {
-        throw std::invalid_argument("Linux shared memory name must start with '/' and contain no other '/' characters");
+        throw std::invalid_argument(
+            "Linux shared memory name must start with '/' and contain no other '/' characters");
     }
 
     m_Name = rName;
     m_SizeBytes = SizeBytes;
-    m_FileDescriptor = shm_open(rName.c_str(), O_CREAT | O_EXCL | O_RDWR | O_CLOEXEC,
-                                S_IRUSR | S_IWUSR);
+    m_FileDescriptor =
+        shm_open(rName.c_str(), O_CREAT | O_EXCL | O_RDWR | O_CLOEXEC, S_IRUSR | S_IWUSR);
     if (m_FileDescriptor == -1)
     {
         m_Name.clear();
@@ -68,8 +66,8 @@ void* OsAbstractions::CreateAndMapMemory(const std::string& rName, std::size_t S
         throw std::system_error(Error, std::generic_category(), "ftruncate " + rName);
     }
 
-    void* pAddress = mmap(nullptr, SizeBytes, PROT_READ | PROT_WRITE, MAP_SHARED,
-                          m_FileDescriptor, 0);
+    void* pAddress =
+        mmap(nullptr, SizeBytes, PROT_READ | PROT_WRITE, MAP_SHARED, m_FileDescriptor, 0);
     if (pAddress == MAP_FAILED)
     {
         const int Error = errno;
@@ -80,17 +78,11 @@ void* OsAbstractions::CreateAndMapMemory(const std::string& rName, std::size_t S
     m_pMappedAddress = pAddress;
     m_IsMapped = true;
     return m_pMappedAddress;
-#else
-    (void)rName;
-    (void)SizeBytes;
-    throw std::runtime_error("shared memory is not implemented for this operating system");
-#endif
 }
 
 
-void OsAbstractions::ReleaseSharedMemory() noexcept
+void LinuxOsAbstractions::ReleaseSharedMemory() noexcept
 {
-#if defined(__linux__)
     if (m_IsMapped)
     {
         munmap(m_pMappedAddress, m_SizeBytes);
@@ -109,7 +101,7 @@ void OsAbstractions::ReleaseSharedMemory() noexcept
         shm_unlink(m_Name.c_str());
         m_OwnsName = false;
     }
-#endif
+
     m_Name.clear();
     m_SizeBytes = 0;
 }

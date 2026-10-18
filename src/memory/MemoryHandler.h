@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Config.h"
-#include "OsAbstractions.h"
+#include "config/Config.h"
+#include "platform/IOsAbstractions.h"
 
 #include <atomic>
 #include <cstddef>
@@ -40,7 +40,7 @@ struct alignas(8) PerSlotHeader
 class MemoryHandler final
 {
   public:
-    explicit MemoryHandler(const SimulatorConfig& rConfig);
+    MemoryHandler(const SimulatorConfig& rConfig, IOsAbstractions& rOsAbstractions);
     ~MemoryHandler();
 
     MemoryHandler(const MemoryHandler&) = delete;
@@ -58,6 +58,6 @@ class MemoryHandler final
     void Init();
 
     const SimulatorConfig& m_rConfig;
-    OsAbstractions m_OsAbstractions;
+    IOsAbstractions& m_rOsAbstractions;
     void* m_pSharedMemory = nullptr;
 };

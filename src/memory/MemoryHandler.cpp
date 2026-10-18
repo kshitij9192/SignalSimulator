@@ -1,9 +1,9 @@
-#include "MemoryHandler.h"
-#include "ConfigParser.h"
+#include "memory/MemoryHandler.h"
 
 #include <new>
 
-MemoryHandler::MemoryHandler(const SimulatorConfig& rConfig) : m_rConfig(rConfig)
+MemoryHandler::MemoryHandler(const SimulatorConfig& rConfig, IOsAbstractions& rOsAbstractions)
+    : m_rConfig(rConfig), m_rOsAbstractions(rOsAbstractions)
 {
     Init();
 }
@@ -88,8 +88,8 @@ void MemoryHandler::InitializeSlotHeaders()
 
 void MemoryHandler::Init()
 {
-    m_pSharedMemory = m_OsAbstractions.CreateAndMapMemory(m_rConfig.SharedMemoryName,
-                                                          CalculateTotalSharedMemorySize());
+    m_pSharedMemory = m_rOsAbstractions.CreateAndMapMemory(m_rConfig.SharedMemoryName,
+                                                           CalculateTotalSharedMemorySize());
     InitializeSlotHeaders();
     InitializeGlobalHeader();
 }

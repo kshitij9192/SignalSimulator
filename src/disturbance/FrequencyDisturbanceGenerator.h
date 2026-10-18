@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Config.h"
-#include "IDisturbanceGenerator.h"
+#include "config/Config.h"
+#include "disturbance/IDisturbanceGenerator.h"
 
 #include <cstdint>
 

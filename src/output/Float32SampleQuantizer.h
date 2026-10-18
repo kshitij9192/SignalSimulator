@@ -1,6 +1,6 @@
 #pragma once
 
-#include "ISampleQuantizer.h"
+#include "output/ISampleQuantizer.h"
 
 class Float32SampleQuantizer final : public ISampleQuantizer
 {

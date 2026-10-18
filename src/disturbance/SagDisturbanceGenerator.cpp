@@ -1,4 +1,4 @@
-#include "SagDisturbanceGenerator.h"
+#include "disturbance/SagDisturbanceGenerator.h"
 
 SagDisturbanceGenerator::SagDisturbanceGenerator(const SagEvent& rEvent, std::size_t ChannelCount)
     : m_rEvent(rEvent), m_ChannelCount(ChannelCount)

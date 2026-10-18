@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Config.h"
-#include "ISampleQuantizer.h"
+#include "config/Config.h"
+#include "output/ISampleQuantizer.h"
 
 #include <cstddef>
 #include <cstdint>

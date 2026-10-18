@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Config.h"
-#include "IDisturbanceGenerator.h"
-#include "ISignalGenerator.h"
+#include "config/Config.h"
+#include "disturbance/IDisturbanceGenerator.h"
+#include "signal/ISignalGenerator.h"
 
 #include <cstdint>
 #include <memory>

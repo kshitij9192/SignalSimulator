@@ -1,8 +1,8 @@
 #pragma once
 
-#include "Config.h"
-#include "ISampleQuantizer.h"
-#include "OutputGenerator.h"
+#include "config/Config.h"
+#include "output/ISampleQuantizer.h"
+#include "output/OutputGenerator.h"
 
 #include <cstddef>
 #include <cstdint>
