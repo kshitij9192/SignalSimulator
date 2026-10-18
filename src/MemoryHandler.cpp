@@ -16,31 +16,8 @@ MemoryHandler::~MemoryHandler()
 
 std::size_t MemoryHandler::CalculatePayloadSize() const
 {
-    const std::size_t ChannelCount = m_rConfig.Channels.size();
-    std::size_t BytesPerSample = 0;
-
-    if (m_rConfig.Representation == SampleRepresentation::Float32)
-    {
-        BytesPerSample = sizeof(float);
-    }
-    else
-    {
-        switch (m_rConfig.Adc->ResolutionBits)
-        {
-        case 8:
-            BytesPerSample = 1;
-            break;
-        case 12:
-        case 16:
-            BytesPerSample = 2;
-            break;
-        case 24:
-            BytesPerSample = 4;
-            break;
-        }
-    }
-
-    return m_rConfig.BlockSizeSamplesPerChannel * ChannelCount * BytesPerSample;
+    return m_rConfig.BlockSizeSamplesPerChannel * m_rConfig.Channels.size() *
+           m_rConfig.GetBytesPerSample();
 }
 
 
@@ -49,13 +26,14 @@ std::size_t MemoryHandler::CalculateAlignedPayloadSize() const
     constexpr std::size_t Alignment = alignof(PerSlotHeader);
     const std::size_t PayloadSize = CalculatePayloadSize();
     const std::size_t Remainder = PayloadSize % Alignment;
+    std::size_t AlignedPayloadSize = PayloadSize;
 
-    if (Remainder == 0)
+    if (Remainder != 0)
     {
-        return PayloadSize;
+        AlignedPayloadSize = PayloadSize + (Alignment - Remainder);
     }
 
-    return PayloadSize + (Alignment - Remainder);
+    return AlignedPayloadSize;
 }
 
 
@@ -85,7 +63,7 @@ void MemoryHandler::InitializeGlobalHeader()
     {
         pGlobalHeader->Polarity = m_rConfig.Adc->Polarity;
         pGlobalHeader->AdcResolutionBits = m_rConfig.Adc->ResolutionBits;
-        pGlobalHeader->AdcReferenceVoltageV = m_rConfig.Adc->ReferenceVoltageV;
+        pGlobalHeader->AdcReferenceAmplitude = m_rConfig.Adc->ReferenceAmplitude;
     }
 
     pGlobalHeader->Magic = SharedMemoryMagic;

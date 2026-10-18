@@ -19,12 +19,12 @@ Unknown properties are rejected by the schema. Enum values are case-sensitive an
 
 ## Signal And Sampling
 
-`signal.frequency_hz` is the positive nominal frequency in hertz. `nominal_amplitude_v` is the peak amplitude in volts; `offset_v` is a constant offset in volts. `channels` must contain at least one entry with a distinct ID. Each `phase_deg` is that channel's phase displacement in degrees; the sample uses the common three-phase values 0, 120, and 240 degrees. Event `target_channels` values must match configured channel IDs.
+`signal.frequency_hz` is the positive nominal frequency in hertz. `nominal_amplitude` is the peak amplitude; `offset` is a constant offset. `channels` must contain at least one entry, and each channel is identified by its 0-based index in the array. Each `phase_deg` is that channel's phase displacement in degrees; the sample uses the common three-phase values 0, 120, and 240 degrees. Event `target_channels` values must be valid 0-based indices into `signal.channels`.
 
-The nominal voltage for channel $i$ is:
+The nominal signal value for channel $i$ is:
 
 $$
-v_i(t) = \text{offset}_v + \text{nominal\_amplitude}_v \sin\left(2\pi f t + \phi_i\right),
+x_i(t) = \text{offset} + \text{nominal\_amplitude} \sin\left(2\pi f t + \phi_i\right),
 \qquad \phi_i = \text{phase\_deg}_i \frac{\pi}{180}.
 $$
 
@@ -36,14 +36,14 @@ The derived sample rate remains fixed during frequency-distortion events. Conseq
 
 `output.representation` accepts:
 
-- `float32`: emit IEEE-754 32-bit voltage samples. Do not include `output.adc` for this mode.
-- `adc_integer`: quantize voltage samples using the required ADC settings.
+- `float32`: emit IEEE-754 32-bit engineering-unit samples. Do not include `output.adc` for this mode.
+- `adc_integer`: quantize signal samples using the required ADC settings.
 
 `output.layout` is `interleaved` (channel samples alternate at each sample index in configured channel order) or `planar` (all samples for one channel are followed by all samples for the next, in configured order). Each slot contains the configured number of channels times `block_size_samples_per_channel` samples.
 
-For `adc_integer`, `reference_voltage_v` must be positive, `polarity` is `unipolar` or `bipolar`, and `resolution_bits` is 8, 12, 16, or 24. Unipolar input spans `[0, Vref]`; bipolar input spans `[-Vref, +Vref]`. Out-of-range values saturate at the corresponding ADC rail. Containers are 1 byte for 8-bit, 2 bytes for 12- and 16-bit, and 4 bytes for 24-bit samples; 12- and 24-bit values are right-justified.
+For `adc_integer`, `reference_amplitude` must be positive, `polarity` is `unipolar` or `bipolar`, and `resolution_bits` is 8, 12, 16, or 24. Unipolar input spans `[0, Aref]`; bipolar input spans `[-Aref, +Aref]`. Out-of-range values saturate at the corresponding ADC rail. Containers are 1 byte for 8-bit, 2 bytes for 12- and 16-bit, and 4 bytes for 24-bit samples; 12- and 24-bit values are right-justified.
 
-Nominal amplitude and offset must fit the selected ADC range to preserve headroom. For bipolar mode, the nominal peak envelope is `abs(offset_v) + nominal_amplitude_v` and must not exceed `reference_voltage_v`. For unipolar mode, the full nominal envelope must fit `[0, reference_voltage_v]`. Disturbances may exceed the rails and are saturated during quantization.
+Nominal amplitude and offset must fit the selected ADC range to preserve headroom. For bipolar mode, the nominal peak envelope is `abs(offset) + nominal_amplitude` and must not exceed `reference_amplitude`. For unipolar mode, the full nominal envelope must fit `[0, reference_amplitude]`. Disturbances may exceed the rails and are saturated during quantization.
 
 ## Buffer And IPC
 
@@ -53,17 +53,17 @@ The initial release uses Linux IPC only. `shared_memory_name` is a POSIX shared-
 
 ## Disturbance Timeline
 
-All event times and durations are integer nanoseconds relative to simulation start. Events are deterministic; list them in ascending `start_time_ns` order for readability. Targeted events must name one or more configured channel IDs. Frequency distortion affects all configured channels synchronously.
+All event times and durations are integer nanoseconds relative to simulation start. Events are deterministic; list them in ascending `start_time_ns` order for readability. Targeted events must specify one or more 0-based configured channel indices. Frequency distortion affects all configured channels synchronously.
 
 | Type | Required event-specific settings | Behavior |
 | --- | --- | --- |
-| `surge` | `shape`, `peak_amplitude_v` | Adds a half-sine transient to each target channel over the event duration; `peak_amplitude_v` is its peak in volts. |
-| `voltage_sag` | `scaling_factor` | Multiplies target-channel amplitude by a factor strictly between 0 and 1. |
-| `voltage_swell` | `scaling_factor` | Multiplies target-channel amplitude by a factor greater than 1. |
+| `surge` | `shape`, `peak_amplitude` | Adds a half-sine transient to each target channel over the event duration; `peak_amplitude` is its non-zero (positive or negative) peak. |
+| `sag` | `scaling_factor` | Multiplies target-channel amplitude by a factor in `[0, 1)`. |
+| `swell` | `scaling_factor` | Multiplies target-channel amplitude by a factor greater than 1. |
 | `frequency_distortion` | `mode`, `delta_frequency_hz` | Applies a frequency offset to all channels. `step` applies it throughout the event; `ramp` changes the offset linearly from zero to `delta_frequency_hz` over the event duration. Phase remains continuous through transitions. |
 
 Sag and swell scale the sine amplitude, not the constant offset. Frequency changes must not make instantaneous frequency zero or negative. Until event-overlap composition is defined by the implementation, avoid overlapping events that affect the same channel or frequency.
 
 ## Validation
 
-The schema checks JSON structure, required fields, enums, and local ranges. Runtime validation must additionally check conditions that depend on multiple values, including unique channel IDs, event targets referring to configured channels, nominal waveform fit within ADC rails, positive frequency throughout a frequency event, achievable sample rates, and Linux IPC constraints. Invalid configuration must be rejected before shared-memory initialization.
+The schema checks JSON structure, required fields, enums, and local ranges. Runtime validation must additionally check conditions that depend on multiple values, including event targets referring to valid configured channel indices, nominal waveform fit within ADC rails, positive frequency throughout a frequency event, achievable sample rates, and Linux IPC constraints. Invalid configuration must be rejected before shared-memory initialization.
