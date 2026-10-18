@@ -46,62 +46,64 @@ if(SIGNAL_SIMULATOR_ENABLE_CLANG_TIDY)
     )
 endif()
 
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set(SIGNAL_SIMULATOR_PLATFORM_CPP_SOURCES
+        src/platform/LinuxOsAbstractions.cpp
+    )
+    set(SIGNAL_SIMULATOR_PLATFORM_HEADER_FILES
+        src/platform/LinuxOsAbstractions.h
+    )
+else()
+    message(FATAL_ERROR "Unsupported target platform: ${CMAKE_SYSTEM_NAME}")
+endif()
+
 set(SIGNAL_SIMULATOR_CPP_SOURCES
-    src/AdcSampleQuantizer.cpp
-    src/BlockAssembler.cpp
-    src/Float32SampleQuantizer.cpp
-    src/FrequencyDisturbanceGenerator.cpp
     src/Main.cpp
-    src/MemoryHandler.cpp
-    src/OsAbstractions.cpp
-    src/OutputGenerator.cpp
-    src/SagDisturbanceGenerator.cpp
-    src/SineSignalGenerator.cpp
-    src/SurgeDisturbanceGenerator.cpp
-    src/SwellDisturbanceGenerator.cpp
+    src/disturbance/FrequencyDisturbanceGenerator.cpp
+    src/disturbance/SagDisturbanceGenerator.cpp
+    src/disturbance/SurgeDisturbanceGenerator.cpp
+    src/disturbance/SwellDisturbanceGenerator.cpp
+    src/memory/MemoryHandler.cpp
+    src/output/AdcSampleQuantizer.cpp
+    src/output/BlockAssembler.cpp
+    src/output/Float32SampleQuantizer.cpp
+    src/output/OutputGenerator.cpp
+    src/signal/SineSignalGenerator.cpp
+    ${SIGNAL_SIMULATOR_PLATFORM_CPP_SOURCES}
+)
+set(SIGNAL_SIMULATOR_HEADER_FILES
+    src/config/Config.h
+    src/config/ConfigParser.h
+    src/disturbance/FrequencyDisturbanceGenerator.h
+    src/disturbance/IDisturbanceGenerator.h
+    src/disturbance/SagDisturbanceGenerator.h
+    src/disturbance/SurgeDisturbanceGenerator.h
+    src/disturbance/SwellDisturbanceGenerator.h
+    src/memory/MemoryHandler.h
+    src/output/AdcSampleQuantizer.h
+    src/output/BlockAssembler.h
+    src/output/Float32SampleQuantizer.h
+    src/output/ISampleQuantizer.h
+    src/output/OutputGenerator.h
+    src/platform/IOsAbstractions.h
+    src/signal/ISignalGenerator.h
+    src/signal/SineSignalGenerator.h
+    ${SIGNAL_SIMULATOR_PLATFORM_HEADER_FILES}
 )
 set(SIGNAL_SIMULATOR_CXX_SOURCES
     ${SIGNAL_SIMULATOR_CPP_SOURCES}
-    src/AdcSampleQuantizer.h
-    src/BlockAssembler.h
-    src/Config.h
-    src/ConfigParser.cpp
-    src/ConfigParser.h
-    src/Float32SampleQuantizer.h
-    src/FrequencyDisturbanceGenerator.h
-    src/IDisturbanceGenerator.h
-    src/ISampleQuantizer.h
-    src/ISignalGenerator.h
-    src/MemoryHandler.h
-    src/OsAbstractions.h
-    src/OutputGenerator.h
-    src/SagDisturbanceGenerator.h
-    src/SineSignalGenerator.h
-    src/SurgeDisturbanceGenerator.h
-    src/SwellDisturbanceGenerator.h
+    src/config/ConfigParser.cpp
+    ${SIGNAL_SIMULATOR_HEADER_FILES}
 )
 
-add_library(signal_simulator_config src/ConfigParser.cpp src/ConfigParser.h)
+add_library(signal_simulator_config src/config/ConfigParser.cpp src/config/ConfigParser.h)
 target_compile_features(signal_simulator_config PUBLIC cxx_std_17)
 target_include_directories(signal_simulator_config PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(signal_simulator_config PUBLIC nlohmann_json::nlohmann_json)
 
 add_executable(signal_simulator
     ${SIGNAL_SIMULATOR_CPP_SOURCES}
-    src/AdcSampleQuantizer.h
-    src/BlockAssembler.h
-    src/Float32SampleQuantizer.h
-    src/FrequencyDisturbanceGenerator.h
-    src/IDisturbanceGenerator.h
-    src/ISampleQuantizer.h
-    src/ISignalGenerator.h
-    src/MemoryHandler.h
-    src/OsAbstractions.h
-    src/OutputGenerator.h
-    src/SagDisturbanceGenerator.h
-    src/SineSignalGenerator.h
-    src/SurgeDisturbanceGenerator.h
-    src/SwellDisturbanceGenerator.h
+    ${SIGNAL_SIMULATOR_HEADER_FILES}
 )
 target_link_libraries(signal_simulator PRIVATE signal_simulator_config)
 

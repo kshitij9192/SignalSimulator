@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Config.h"
-#include "ISignalGenerator.h"
+#include "config/Config.h"
+#include "signal/ISignalGenerator.h"
 
 #include <vector>
 

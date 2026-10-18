@@ -1,4 +1,4 @@
-#include "ConfigParser.h"
+#include "config/ConfigParser.h"
 
 #include <nlohmann/json.hpp>
 

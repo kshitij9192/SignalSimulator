@@ -1,4 +1,4 @@
-#include "FrequencyDisturbanceGenerator.h"
+#include "disturbance/FrequencyDisturbanceGenerator.h"
 
 FrequencyDisturbanceGenerator::FrequencyDisturbanceGenerator(
     const FrequencyDistortionEvent& rEvent)

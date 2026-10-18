@@ -1,4 +1,4 @@
-#include "SwellDisturbanceGenerator.h"
+#include "disturbance/SwellDisturbanceGenerator.h"
 
 SwellDisturbanceGenerator::SwellDisturbanceGenerator(const SwellEvent& rEvent,
                                                      std::size_t ChannelCount)

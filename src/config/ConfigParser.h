@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Config.h"
+#include "config/Config.h"
 
 #include <nlohmann/json_fwd.hpp>
 

@@ -1,4 +1,4 @@
-#include "SurgeDisturbanceGenerator.h"
+#include "disturbance/SurgeDisturbanceGenerator.h"
 
 #include <cmath>
 

@@ -1,5 +1,6 @@
-#include "ConfigParser.h"
-#include "MemoryHandler.h"
+#include "config/ConfigParser.h"
+#include "memory/MemoryHandler.h"
+#include "platform/LinuxOsAbstractions.h"
 
 #include <exception>
 #include <iostream>
@@ -48,7 +49,8 @@ int main(int ArgumentCount, char* pArguments[])
     {
         const std::string ConfigPath = ParseConfigPathFromArguments(ArgumentCount, pArguments);
         const SimulatorConfig Config = ConfigParser::ParseConfigFile(ConfigPath);
-        MemoryHandler SharedMemory(Config);
+        LinuxOsAbstractions OsAbstractions;
+        MemoryHandler SharedMemory(Config, OsAbstractions);
 
         std::cout << "Configuration valid: " << ConfigPath << '\n';
         return 0;
