@@ -2,44 +2,38 @@
 
 #include <cmath>
 
-namespace
-{
-constexpr double Pi = 3.14159265358979323846;
-} // namespace
-
-
-SurgeDisturbanceGenerator::SurgeDisturbanceGenerator(const SurgeEvent& rEvent,
+SurgeDisturbanceGenerator::SurgeDisturbanceGenerator(const SurgeEvent& Event,
                                                      std::size_t ChannelCount)
-    : m_rEvent(rEvent), m_ChannelCount(ChannelCount)
+    : m_Event(Event), m_ChannelCount(ChannelCount)
 {
 }
 
 
 bool SurgeDisturbanceGenerator::IsEventActive(std::uint64_t SimulationTimeNs) const
 {
-    return SimulationTimeNs >= m_rEvent.StartTimeNs &&
-           (SimulationTimeNs - m_rEvent.StartTimeNs) < m_rEvent.DurationNs;
+    return SimulationTimeNs >= m_Event.StartTimeNs &&
+           (SimulationTimeNs - m_Event.StartTimeNs) < m_Event.DurationNs;
 }
 
 
-void SurgeDisturbanceGenerator::EvaluateDisturbance(std::uint64_t SimulationTimeNs,
-                                                    SampleDisturbance& rOutDisturbance)
+void SurgeDisturbanceGenerator::ApplyDisturbance(std::uint64_t SimulationTimeNs,
+                                                 SampleDisturbance& OutDisturbance)
 {
-    if (rOutDisturbance.Channels.size() != m_ChannelCount)
+    if (OutDisturbance.Channels.size() != m_ChannelCount)
     {
-        rOutDisturbance.Channels.assign(m_ChannelCount, ChannelDisturbance{});
+        OutDisturbance.Channels.assign(m_ChannelCount, ChannelDisturbance{});
     }
 
     if (IsEventActive(SimulationTimeNs))
     {
-        const double ElapsedNs = static_cast<double>(SimulationTimeNs - m_rEvent.StartTimeNs);
-        const double DurationNs = static_cast<double>(m_rEvent.DurationNs);
+        const double ElapsedNs = static_cast<double>(SimulationTimeNs - m_Event.StartTimeNs);
+        const double DurationNs = static_cast<double>(m_Event.DurationNs);
         const double SurgeOffset =
-            m_rEvent.PeakAmplitude * std::sin(Pi * (ElapsedNs / DurationNs));
+            m_Event.PeakAmplitude * std::sin(m_Pi * (ElapsedNs / DurationNs));
 
-        for (const std::size_t ChannelIndex : m_rEvent.TargetChannels)
+        for (const std::size_t ChannelIndex : m_Event.TargetChannels)
         {
-            rOutDisturbance.Channels[ChannelIndex].AdditiveOffset += SurgeOffset;
+            OutDisturbance.Channels[ChannelIndex].AdditiveOffset += SurgeOffset;
         }
     }
 }

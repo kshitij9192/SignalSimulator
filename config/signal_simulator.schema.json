@@ -163,7 +163,7 @@
     "ipc": {
       "type": "object",
       "description": "Linux shared-memory and consumer-notification names.",
-      "required": ["shared_memory_name", "notification"],
+      "required": ["shared_memory_name", "semaphore_name"],
       "additionalProperties": false,
       "properties": {
         "shared_memory_name": {
@@ -171,25 +171,10 @@
           "pattern": "^/[^/]+$",
           "description": "POSIX shared-memory name, beginning with one slash."
         },
-        "notification": {
-          "type": "object",
-          "required": ["type", "name", "initial_value"],
-          "additionalProperties": false,
-          "properties": {
-            "type": {
-              "const": "posix_named_semaphore",
-              "description": "Linux notification primitive."
-            },
-            "name": {
-              "type": "string",
-              "pattern": "^/[^/]+$",
-              "description": "POSIX semaphore name, beginning with one slash."
-            },
-            "initial_value": {
-              "const": 0,
-              "description": "Semaphore starts with no pending notifications."
-            }
-          }
+        "semaphore_name": {
+          "type": "string",
+          "pattern": "^/[^/]+$",
+          "description": "POSIX semaphore name, beginning with one slash."
         }
       }
     },

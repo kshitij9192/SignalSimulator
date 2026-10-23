@@ -2,30 +2,22 @@
 
 #include <cmath>
 
-namespace
-{
-constexpr double Pi = 3.14159265358979323846;
-constexpr double TwoPi = 2.0 * Pi;
-constexpr double DegreesToRadians = Pi / 180.0;
-} // namespace
-
-
-SineSignalGenerator::SineSignalGenerator(const SimulatorConfig& rConfig)
-    : m_rConfig(rConfig),
-      m_ChannelPhaseOffsetsRadians(ConvertChannelPhasesToRadians(rConfig.Channels))
+SineSignalGenerator::SineSignalGenerator(const SimulatorConfig& Config)
+    : m_Config(Config),
+      m_ChannelPhaseOffsetsRadians(ConvertChannelPhasesToRadians(Config.Channels))
 {
 }
 
 
 std::vector<double> SineSignalGenerator::ConvertChannelPhasesToRadians(
-    const std::vector<ChannelConfig>& rChannels)
+    const std::vector<ChannelConfig>& Channels)
 {
     std::vector<double> PhaseOffsetsRadians;
-    PhaseOffsetsRadians.reserve(rChannels.size());
+    PhaseOffsetsRadians.reserve(Channels.size());
 
-    for (const ChannelConfig& rChannel : rChannels)
+    for (const ChannelConfig& Channel : Channels)
     {
-        PhaseOffsetsRadians.push_back(rChannel.PhaseDegrees * DegreesToRadians);
+        PhaseOffsetsRadians.push_back(Channel.PhaseDegrees * m_DegreesToRadians);
     }
 
     return PhaseOffsetsRadians;
@@ -34,30 +26,30 @@ std::vector<double> SineSignalGenerator::ConvertChannelPhasesToRadians(
 
 void SineSignalGenerator::AdvancePhase(double DeltaFrequencyHz)
 {
-    const double InstantaneousFrequencyHz = m_rConfig.FrequencyHz + DeltaFrequencyHz;
+    const double InstantaneousFrequencyHz = m_Config.FrequencyHz + DeltaFrequencyHz;
     const double PhaseIncrementRadians =
-        (TwoPi * InstantaneousFrequencyHz) / m_rConfig.SampleRateHz;
+        (m_TwoPi * InstantaneousFrequencyHz) / m_Config.SampleRateHz;
 
-    m_CurrentPhaseRadians = std::fmod(m_CurrentPhaseRadians + PhaseIncrementRadians, TwoPi);
+    m_CurrentPhaseRadians = std::fmod(m_CurrentPhaseRadians + PhaseIncrementRadians, m_TwoPi);
     if (m_CurrentPhaseRadians < 0.0)
     {
-        m_CurrentPhaseRadians += TwoPi;
+        m_CurrentPhaseRadians += m_TwoPi;
     }
 }
 
 
 void SineSignalGenerator::GenerateSample(double DeltaFrequencyHz,
-                                         std::vector<double>& rOutChannelSamples)
+                                         std::vector<double>& OutChannelSamples)
 {
     const std::size_t ChannelCount = m_ChannelPhaseOffsetsRadians.size();
-    rOutChannelSamples.resize(ChannelCount);
+    OutChannelSamples.resize(ChannelCount);
 
     for (std::size_t ChannelIndex = 0; ChannelIndex < ChannelCount; ++ChannelIndex)
     {
         const double ChannelPhaseRadians =
             m_CurrentPhaseRadians + m_ChannelPhaseOffsetsRadians[ChannelIndex];
-        rOutChannelSamples[ChannelIndex] =
-            m_rConfig.NominalAmplitude * std::sin(ChannelPhaseRadians);
+        OutChannelSamples[ChannelIndex] =
+            m_Config.NominalAmplitude * std::sin(ChannelPhaseRadians);
     }
 
     AdvancePhase(DeltaFrequencyHz);

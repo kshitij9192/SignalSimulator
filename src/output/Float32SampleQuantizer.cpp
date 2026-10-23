@@ -2,10 +2,10 @@
 
 #include <cstring>
 
-void Float32SampleQuantizer::QuantizeSampleAndCopyToMemory(double InputSample, std::byte* pDestination) const
+void Float32SampleQuantizer::QuantizeSampleAndCopyToMemory(double InputSample, std::byte* Destination) const
 {
-    const float ConvertedSampleValue = static_cast<float>(InputSample);
-    std::memcpy(pDestination, &ConvertedSampleValue, sizeof(float));
+    const auto ConvertedSampleValue = static_cast<float>(InputSample);
+    std::memcpy(Destination, &ConvertedSampleValue, sizeof(float));
 }
 
 

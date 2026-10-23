@@ -1,32 +1,32 @@
 #include "disturbance/SwellDisturbanceGenerator.h"
 
-SwellDisturbanceGenerator::SwellDisturbanceGenerator(const SwellEvent& rEvent,
+SwellDisturbanceGenerator::SwellDisturbanceGenerator(const SwellEvent& Event,
                                                      std::size_t ChannelCount)
-    : m_rEvent(rEvent), m_ChannelCount(ChannelCount)
+    : m_Event(Event), m_ChannelCount(ChannelCount)
 {
 }
 
 
 bool SwellDisturbanceGenerator::IsEventActive(std::uint64_t SimulationTimeNs) const
 {
-    return SimulationTimeNs >= m_rEvent.StartTimeNs &&
-           (SimulationTimeNs - m_rEvent.StartTimeNs) < m_rEvent.DurationNs;
+    return SimulationTimeNs >= m_Event.StartTimeNs &&
+           (SimulationTimeNs - m_Event.StartTimeNs) < m_Event.DurationNs;
 }
 
 
-void SwellDisturbanceGenerator::EvaluateDisturbance(std::uint64_t SimulationTimeNs,
-                                                    SampleDisturbance& rOutDisturbance)
+void SwellDisturbanceGenerator::ApplyDisturbance(std::uint64_t SimulationTimeNs,
+                                                 SampleDisturbance& OutDisturbance)
 {
-    if (rOutDisturbance.Channels.size() != m_ChannelCount)
+    if (OutDisturbance.Channels.size() != m_ChannelCount)
     {
-        rOutDisturbance.Channels.assign(m_ChannelCount, ChannelDisturbance{});
+        OutDisturbance.Channels.assign(m_ChannelCount, ChannelDisturbance{});
     }
 
     if (IsEventActive(SimulationTimeNs))
     {
-        for (const std::size_t ChannelIndex : m_rEvent.TargetChannels)
+        for (const std::size_t ChannelIndex : m_Event.TargetChannels)
         {
-            rOutDisturbance.Channels[ChannelIndex].AmplitudeScale *= m_rEvent.ScalingFactor;
+            OutDisturbance.Channels[ChannelIndex].AmplitudeScale *= m_Event.ScalingFactor;
         }
     }
 }

@@ -8,121 +8,122 @@
 #include <set>
 #include <stdexcept>
 
-[[noreturn]] void ConfigParser::ThrowConfigError(const std::string& rPath, const std::string& rMessage)
+[[noreturn]] void ConfigParser::ThrowConfigError(const std::string& Path, const std::string& Message)
 {
-    throw std::invalid_argument(rPath + ": " + rMessage);
+    throw std::invalid_argument(Path + ": " + Message);
 }
 
 
-const ConfigParser::Json& ConfigParser::FindKeyInJson(const Json& rObject,
-                                                      const std::string& rKey,
-                                                      const std::string& rPath)
+const ConfigParser::Json& ConfigParser::FindKeyInJson(const Json& Object,
+                                                      std::string_view Key,
+                                                      std::string_view Path)
 {
-    const auto It = rObject.find(rKey);
-    if (It == rObject.end())
+    const auto It = Object.find(Key);
+    if (It == Object.end())
     {
-        ThrowConfigError(rPath + "." + rKey, "required property is missing");
+        ThrowConfigError(std::string(Path) + "." + std::string(Key),
+                         "required property is missing");
     }
 
     return *It;
 }
 
 
-std::string ConfigParser::ToStringValue(const Json& rValue, const std::string& rPath)
+std::string ConfigParser::ToStringValue(const Json& Value, const std::string& Path)
 {
-    if (!rValue.is_string())
+    if (!Value.is_string())
     {
-        ThrowConfigError(rPath, "expected a string");
+        ThrowConfigError(Path, "expected a string");
     }
 
-    return rValue.get<std::string>();
+    return Value.get<std::string>();
 }
 
 
-double ConfigParser::ToNumericValue(const Json& rValue, const std::string& rPath)
+double ConfigParser::ToNumericValue(const Json& Value, const std::string& Path)
 {
-    if (!rValue.is_number())
+    if (!Value.is_number())
     {
-        ThrowConfigError(rPath, "expected a number");
+        ThrowConfigError(Path, "expected a number");
     }
 
-    return rValue.get<double>();
+    return Value.get<double>();
 }
 
 
-std::uint64_t ConfigParser::ToUnsignedIntegerValue(const Json& rValue, const std::string& rPath)
+std::uint64_t ConfigParser::ToUnsignedIntegerValue(const Json& Value, const std::string& Path)
 {
-    if (rValue.is_number_unsigned())
+    if (Value.is_number_unsigned())
     {
-        return rValue.get<std::uint64_t>();
+        return Value.get<std::uint64_t>();
     }
 
-    ThrowConfigError(rPath, "expected a non-negative integer");
+    ThrowConfigError(Path, "expected a non-negative integer");
 }
 
 
-std::size_t ConfigParser::ToSizeTValue(const Json& rValue, const std::string& rPath)
+std::size_t ConfigParser::ToSizeTValue(const Json& Value, const std::string& Path)
 {
-    const std::uint64_t Value = ToUnsignedIntegerValue(rValue, rPath);
+    const std::uint64_t UnsignedValue = ToUnsignedIntegerValue(Value, Path);
 
-    return static_cast<std::size_t>(Value);
+    return static_cast<std::size_t>(UnsignedValue);
 }
 
 
-void ConfigParser::RequireJsonFieldEquals(const Json& rObject, const std::string& rKey,
-                                          const Json& rExpected, const std::string& rPath)
+void ConfigParser::RequireJsonFieldEquals(const Json& Object, const std::string& Key,
+                                          const Json& Expected, const std::string& Path)
 {
-    const Json& Value = FindKeyInJson(rObject, rKey, rPath);
-    if (Value != rExpected)
+    const Json& Value = FindKeyInJson(Object, Key, Path);
+    if (Value != Expected)
     {
-        ThrowConfigError(rPath + "." + rKey, "has an unsupported value");
-    }
-}
-
-
-void ConfigParser::ValidatePosixIpcName(const std::string& rName, const std::string& rPath)
-{
-    if (rName.size() < 2 || rName.front() != '/' || rName.find('/', 1) != std::string::npos ||
-        rName.find('\0') != std::string::npos)
-    {
-        ThrowConfigError(rPath, "must begin with '/' and contain no other '/' characters");
+        ThrowConfigError(Path + "." + Key, "has an unsupported value");
     }
 }
 
 
-std::uint64_t ConfigParser::ParseEventStartTime(const Json& rEvent, const std::string& rPath)
+void ConfigParser::ValidatePosixIpcName(const std::string& Name, const std::string& Path)
 {
-    return ToUnsignedIntegerValue(FindKeyInJson(rEvent, "start_time_ns", rPath),
-                                  rPath + ".start_time_ns");
+    if (Name.size() < 2 || Name.front() != '/' || Name.find('/', 1) != std::string::npos ||
+        Name.find('\0') != std::string::npos)
+    {
+        ThrowConfigError(Path, "must begin with '/' and contain no other '/' characters");
+    }
 }
 
 
-std::uint64_t ConfigParser::ParseEventDurationNanoseconds(const Json& rEvent, std::uint64_t StartTimeNs,
-                                                          const std::string& rPath)
+std::uint64_t ConfigParser::ParseEventStartTime(const Json& Event, const std::string& Path)
+{
+    return ToUnsignedIntegerValue(FindKeyInJson(Event, "start_time_ns", Path),
+                                  Path + ".start_time_ns");
+}
+
+
+std::uint64_t ConfigParser::ParseEventDurationNanoseconds(const Json& Event, std::uint64_t StartTimeNs,
+                                                          const std::string& Path)
 {
     const std::uint64_t DurationNs =
-        ToUnsignedIntegerValue(FindKeyInJson(rEvent, "duration_ns", rPath), rPath + ".duration_ns");
+        ToUnsignedIntegerValue(FindKeyInJson(Event, "duration_ns", Path), Path + ".duration_ns");
     if (DurationNs == 0)
     {
-        ThrowConfigError(rPath + ".duration_ns", "must be greater than zero");
+        ThrowConfigError(Path + ".duration_ns", "must be greater than zero");
     }
-    if ((StartTimeNs + DurationNs) > std::numeric_limits<std::uint64_t>::max())
+    if (DurationNs > (std::numeric_limits<std::uint64_t>::max() - StartTimeNs))
     {
-        ThrowConfigError(rPath, "start_time_ns plus duration_ns overflows");
+        ThrowConfigError(Path, "start_time_ns plus duration_ns overflows");
     }
 
     return DurationNs;
 }
 
 
-std::vector<std::size_t> ConfigParser::ParseEventTargetChannels(const Json& rEvent,
+std::vector<std::size_t> ConfigParser::ParseEventTargetChannels(const Json& Event,
                                                                 std::size_t ChannelCount,
-                                                                const std::string& rPath)
+                                                                const std::string& Path)
 {
-    const Json& Targets = FindKeyInJson(rEvent, "target_channels", rPath);
+    const Json& Targets = FindKeyInJson(Event, "target_channels", Path);
     if (!Targets.is_array() || Targets.empty())
     {
-        ThrowConfigError(rPath + ".target_channels", "expected a non-empty array");
+        ThrowConfigError(Path + ".target_channels", "expected a non-empty array");
     }
 
     std::set<std::size_t> UniqueTargets;
@@ -130,14 +131,14 @@ std::vector<std::size_t> ConfigParser::ParseEventTargetChannels(const Json& rEve
     for (std::size_t Index = 0; Index < Targets.size(); ++Index)
     {
         const std::size_t TargetChannel =
-            ToSizeTValue(Targets[Index], rPath + ".target_channels[" + std::to_string(Index) + "]");
+            ToSizeTValue(Targets[Index], Path + ".target_channels[" + std::to_string(Index) + "]");
         if (!UniqueTargets.insert(TargetChannel).second)
         {
-            ThrowConfigError(rPath + ".target_channels", "channel indices must be unique");
+            ThrowConfigError(Path + ".target_channels", "channel indices must be unique");
         }
         if (TargetChannel >= ChannelCount)
         {
-            ThrowConfigError(rPath + ".target_channels",
+            ThrowConfigError(Path + ".target_channels",
                              "references out-of-range channel index " +
                                  std::to_string(TargetChannel));
         }
@@ -147,98 +148,98 @@ std::vector<std::size_t> ConfigParser::ParseEventTargetChannels(const Json& rEve
 }
 
 
-DisturbanceEvent ConfigParser::ParseDisturbanceEvent(const Json& rEvent, std::size_t Index,
+DisturbanceEvent ConfigParser::ParseDisturbanceEvent(const Json& Event, std::size_t Index,
                                                      std::size_t ChannelCount, double FrequencyHz)
 {
     const std::string Path = "disturbance_timeline[" + std::to_string(Index) + "]";
-    const std::string Type = ToStringValue(FindKeyInJson(rEvent, "type", Path), Path + ".type");
-    const std::uint64_t StartTimeNs = ParseEventStartTime(rEvent, Path);
-    const std::uint64_t DurationNs = ParseEventDurationNanoseconds(rEvent, StartTimeNs, Path);
+    const std::string Type = ToStringValue(FindKeyInJson(Event, "type", Path), Path + ".type");
+    const std::uint64_t StartTimeNs = ParseEventStartTime(Event, Path);
+    const std::uint64_t DurationNs = ParseEventDurationNanoseconds(Event, StartTimeNs, Path);
 
     if (Type == "surge")
     {
-        return ParseSurgeEvent(rEvent, StartTimeNs, DurationNs, ChannelCount, Path);
+        return ParseSurgeEvent(Event, StartTimeNs, DurationNs, ChannelCount, Path);
     }
 
     if (Type == "sag")
     {
-        return ParseSagEvent(rEvent, StartTimeNs, DurationNs, ChannelCount, Path);
+        return ParseSagEvent(Event, StartTimeNs, DurationNs, ChannelCount, Path);
     }
 
     if (Type == "swell")
     {
-        return ParseSwellEvent(rEvent, StartTimeNs, DurationNs, ChannelCount, Path);
+        return ParseSwellEvent(Event, StartTimeNs, DurationNs, ChannelCount, Path);
     }
 
     if (Type == "frequency_distortion")
     {
-        return ParseFrequencyDistortionEvent(rEvent, StartTimeNs, DurationNs, FrequencyHz, Path);
+        return ParseFrequencyDistortionEvent(Event, StartTimeNs, DurationNs, FrequencyHz, Path);
     }
 
     ThrowConfigError(Path + ".type", "must be 'surge', 'sag', 'swell', or 'frequency_distortion'");
 }
 
 
-SurgeEvent ConfigParser::ParseSurgeEvent(const Json& rEvent, std::uint64_t StartTimeNs,
+SurgeEvent ConfigParser::ParseSurgeEvent(const Json& Event, std::uint64_t StartTimeNs,
                                          std::uint64_t DurationNs, std::size_t ChannelCount,
-                                         const std::string& rPath)
+                                         const std::string& Path)
 {
-    RequireJsonFieldEquals(rEvent, "shape", "half_sine", rPath);
+    RequireJsonFieldEquals(Event, "shape", "half_sine", Path);
     const double PeakAmplitude = ToNumericValue(
-        FindKeyInJson(rEvent, "peak_amplitude", rPath), rPath + ".peak_amplitude");
+        FindKeyInJson(Event, "peak_amplitude", Path), Path + ".peak_amplitude");
     if (!std::isfinite(PeakAmplitude) || PeakAmplitude == 0.0)
     {
-        ThrowConfigError(rPath + ".peak_amplitude", "must be non-zero");
+        ThrowConfigError(Path + ".peak_amplitude", "must be non-zero");
     }
     return SurgeEvent{StartTimeNs, DurationNs,
-                      ParseEventTargetChannels(rEvent, ChannelCount, rPath), PeakAmplitude};
+                      ParseEventTargetChannels(Event, ChannelCount, Path), PeakAmplitude};
 }
 
 
-SagEvent ConfigParser::ParseSagEvent(const Json& rEvent,
+SagEvent ConfigParser::ParseSagEvent(const Json& Event,
                                      std::uint64_t StartTimeNs,
                                      std::uint64_t DurationNs,
                                      std::size_t ChannelCount,
-                                     const std::string& rPath)
+                                     const std::string& Path)
 {
     const double ScalingFactor = ToNumericValue(
-        FindKeyInJson(rEvent, "scaling_factor", rPath), rPath + ".scaling_factor");
+        FindKeyInJson(Event, "scaling_factor", Path), Path + ".scaling_factor");
     if (ScalingFactor < 0.0 || ScalingFactor >= 1.0)
     {
-        ThrowConfigError(rPath + ".scaling_factor",
+        ThrowConfigError(Path + ".scaling_factor",
                          "must be greater than or equal to 0 and less than 1");
     }
     return SagEvent{StartTimeNs, DurationNs,
-                    ParseEventTargetChannels(rEvent, ChannelCount, rPath), ScalingFactor};
+                    ParseEventTargetChannels(Event, ChannelCount, Path), ScalingFactor};
 }
 
 
-SwellEvent ConfigParser::ParseSwellEvent(const Json& rEvent,
+SwellEvent ConfigParser::ParseSwellEvent(const Json& Event,
                                          std::uint64_t StartTimeNs,
                                          std::uint64_t DurationNs,
                                          std::size_t ChannelCount,
-                                         const std::string& rPath)
+                                         const std::string& Path)
 {
     const double ScalingFactor = ToNumericValue(
-        FindKeyInJson(rEvent, "scaling_factor", rPath), rPath + ".scaling_factor");
+        FindKeyInJson(Event, "scaling_factor", Path), Path + ".scaling_factor");
     if (ScalingFactor <= 1.0)
     {
-        ThrowConfigError(rPath + ".scaling_factor", "must be greater than 1");
+        ThrowConfigError(Path + ".scaling_factor", "must be greater than 1");
     }
     return SwellEvent{StartTimeNs, DurationNs,
-                      ParseEventTargetChannels(rEvent, ChannelCount, rPath), ScalingFactor};
+                      ParseEventTargetChannels(Event, ChannelCount, Path), ScalingFactor};
 }
 
 
-FrequencyDistortionEvent ConfigParser::ParseFrequencyDistortionEvent(const Json& rEvent,
+FrequencyDistortionEvent ConfigParser::ParseFrequencyDistortionEvent(const Json& Event,
                                                                      std::uint64_t StartTimeNs,
                                                                      std::uint64_t DurationNs,
                                                                      double FrequencyHz,
-                                                                     const std::string& rPath)
+                                                                     const std::string& Path)
 {
     FrequencyDistortionMode Mode;
 
-    const std::string ModeString = ToStringValue(FindKeyInJson(rEvent, "mode", rPath), rPath + ".mode");
+    const std::string ModeString = ToStringValue(FindKeyInJson(Event, "mode", Path), Path + ".mode");
 
     if (ModeString == "step")
     {
@@ -250,56 +251,56 @@ FrequencyDistortionEvent ConfigParser::ParseFrequencyDistortionEvent(const Json&
     }
     else
     {
-        ThrowConfigError(rPath + ".mode", "must be 'step' or 'ramp'");
+        ThrowConfigError(Path + ".mode", "must be 'step' or 'ramp'");
     }
 
-    const double DeltaFrequencyHz = ToNumericValue(FindKeyInJson(rEvent, "delta_frequency_hz", rPath), rPath + ".delta_frequency_hz");
+    const double DeltaFrequencyHz = ToNumericValue(FindKeyInJson(Event, "delta_frequency_hz", Path), Path + ".delta_frequency_hz");
 
     if (!std::isfinite(FrequencyHz + DeltaFrequencyHz) || FrequencyHz + DeltaFrequencyHz <= 0.0)
     {
-        ThrowConfigError(rPath + ".delta_frequency_hz", "would make the signal frequency non-positive");
+        ThrowConfigError(Path + ".delta_frequency_hz", "would make the signal frequency non-positive");
     }
 
     return FrequencyDistortionEvent{Mode, StartTimeNs, DurationNs, DeltaFrequencyHz};
 }
 
 
-void ConfigParser::ValidateSchemaReference(const Json& rRoot)
+void ConfigParser::ValidateSchemaReference(const Json& Root)
 {
-    if (rRoot.contains("$schema") &&
-        ToStringValue(rRoot.at("$schema"), "$.$schema") != "./signal_simulator.schema.json")
+    if (Root.contains("$schema") &&
+        ToStringValue(Root.at("$schema"), "$.$schema") != "./signal_simulator.schema.json")
     {
         ThrowConfigError("$.$schema", "must be './signal_simulator.schema.json'");
     }
 }
 
 
-void ConfigParser::ParseSignalConfiguration(const Json& rRoot, SimulatorConfig& rConfig)
+void ConfigParser::ParseSignalConfiguration(const Json& Root, SimulatorConfig& Config)
 {
-    const Json& Signal = FindKeyInJson(rRoot, "signal", "$");
+    const Json& Signal = FindKeyInJson(Root, "signal", "$");
     RequireJsonFieldEquals(Signal, "waveform", "sine", "signal");
-    rConfig.FrequencyHz = ToNumericValue(FindKeyInJson(Signal, "frequency_hz", "signal"), "signal.frequency_hz");
+    Config.FrequencyHz = ToNumericValue(FindKeyInJson(Signal, "frequency_hz", "signal"), "signal.frequency_hz");
 
-    if (rConfig.FrequencyHz <= 0.0)
+    if (Config.FrequencyHz <= 0.0)
     {
         ThrowConfigError("signal.frequency_hz", "must be greater than zero");
     }
 
-    rConfig.NominalAmplitude = ToNumericValue(FindKeyInJson(Signal, "nominal_amplitude", "signal"), "signal.nominal_amplitude");
-    if (rConfig.NominalAmplitude < 0.0)
+    Config.NominalAmplitude = ToNumericValue(FindKeyInJson(Signal, "nominal_amplitude", "signal"), "signal.nominal_amplitude");
+    if (Config.NominalAmplitude < 0.0)
     {
         ThrowConfigError("signal.nominal_amplitude", "must not be negative");
     }
 
-    rConfig.Offset = ToNumericValue(FindKeyInJson(Signal, "offset", "signal"), "signal.offset");
+    Config.Offset = ToNumericValue(FindKeyInJson(Signal, "offset", "signal"), "signal.offset");
 
-    ParseChannelConfigurations(Signal, rConfig);
+    ParseChannelConfigurations(Signal, Config);
 }
 
 
-void ConfigParser::ParseChannelConfigurations(const Json& rSignal, SimulatorConfig& rConfig)
+void ConfigParser::ParseChannelConfigurations(const Json& Signal, SimulatorConfig& Config)
 {
-    const Json& Channels = FindKeyInJson(rSignal, "channels", "signal");
+    const Json& Channels = FindKeyInJson(Signal, "channels", "signal");
 
     if (!Channels.is_array() || Channels.empty())
     {
@@ -312,14 +313,14 @@ void ConfigParser::ParseChannelConfigurations(const Json& rSignal, SimulatorConf
         const std::string Path = "signal.channels[" + std::to_string(Index) + "]";
         const double PhaseDegrees =
             ToNumericValue(FindKeyInJson(Channel, "phase_deg", Path), Path + ".phase_deg");
-        rConfig.Channels.push_back(ChannelConfig{Index, PhaseDegrees});
+        Config.Channels.push_back(ChannelConfig{Index, PhaseDegrees});
     }
 }
 
 
-void ConfigParser::ParseSamplingConfiguration(const Json& rRoot, SimulatorConfig& rConfig)
+void ConfigParser::ParseSamplingConfiguration(const Json& Root, SimulatorConfig& Config)
 {
-    const Json& Sampling = FindKeyInJson(rRoot, "sampling", "$");
+    const Json& Sampling = FindKeyInJson(Root, "sampling", "$");
 
     const std::uint64_t SamplesPerCycle = ToUnsignedIntegerValue(
         FindKeyInJson(Sampling, "samples_per_cycle", "sampling"),
@@ -330,24 +331,24 @@ void ConfigParser::ParseSamplingConfiguration(const Json& rRoot, SimulatorConfig
         ThrowConfigError("sampling.samples_per_cycle", "must be greater than zero");
     }
 
-    rConfig.SamplesPerCycle = SamplesPerCycle;
-    rConfig.SampleRateHz = rConfig.FrequencyHz * static_cast<double>(SamplesPerCycle);
+    Config.SamplesPerCycle = SamplesPerCycle;
+    Config.SampleRateHz = Config.FrequencyHz * static_cast<double>(SamplesPerCycle);
 
-    if (rConfig.SampleRateHz <= 0.0)
+    if (Config.SampleRateHz <= 0.0)
     {
         ThrowConfigError("sampling.samples_per_cycle", "derived sample rate must be greater than zero");
     }
 }
 
 
-void ConfigParser::ParseOutputConfiguration(const Json& rRoot, SimulatorConfig& rConfig)
+void ConfigParser::ParseOutputConfiguration(const Json& Root, SimulatorConfig& Config)
 {
-    const Json& Output = FindKeyInJson(rRoot, "output", "$");
-    ParseOutputRepresentationAndLayout(Output, rConfig);
+    const Json& Output = FindKeyInJson(Root, "output", "$");
+    ParseOutputRepresentationAndLayout(Output, Config);
 
-    if (rConfig.Representation == SampleRepresentation::AdcInteger)
+    if (Config.Representation == SampleRepresentation::AdcInteger)
     {
-        ParseAdcConfiguration(Output, rConfig);
+        ParseAdcConfiguration(Output, Config);
     }
     else if (Output.contains("adc"))
     {
@@ -356,32 +357,32 @@ void ConfigParser::ParseOutputConfiguration(const Json& rRoot, SimulatorConfig& 
 }
 
 
-void ConfigParser::ParseOutputRepresentationAndLayout(const Json& rOutput,
-                                                      SimulatorConfig& rConfig)
+void ConfigParser::ParseOutputRepresentationAndLayout(const Json& Output,
+                                                      SimulatorConfig& Config)
 {
     const std::string Representation =
-        ToStringValue(FindKeyInJson(rOutput, "representation", "output"), "output.representation");
+        ToStringValue(FindKeyInJson(Output, "representation", "output"), "output.representation");
     if (Representation == "float32")
     {
-        rConfig.Representation = SampleRepresentation::Float32;
+        Config.Representation = SampleRepresentation::Float32;
     }
     else if (Representation == "adc_integer")
     {
-        rConfig.Representation = SampleRepresentation::AdcInteger;
+        Config.Representation = SampleRepresentation::AdcInteger;
     }
     else
     {
         ThrowConfigError("output.representation", "must be 'float32' or 'adc_integer'");
     }
     const std::string Layout =
-        ToStringValue(FindKeyInJson(rOutput, "layout", "output"), "output.layout");
+        ToStringValue(FindKeyInJson(Output, "layout", "output"), "output.layout");
     if (Layout == "interleaved")
     {
-        rConfig.Layout = ChannelDataLayout::Interleaved;
+        Config.Layout = ChannelDataLayout::Interleaved;
     }
     else if (Layout == "planar")
     {
-        rConfig.Layout = ChannelDataLayout::Planar;
+        Config.Layout = ChannelDataLayout::Planar;
     }
     else
     {
@@ -390,9 +391,9 @@ void ConfigParser::ParseOutputRepresentationAndLayout(const Json& rOutput,
 }
 
 
-void ConfigParser::ParseAdcConfiguration(const Json& rOutput, SimulatorConfig& rConfig)
+void ConfigParser::ParseAdcConfiguration(const Json& Output, SimulatorConfig& Config)
 {
-    const Json& Adc = FindKeyInJson(rOutput, "adc", "output");
+    const Json& Adc = FindKeyInJson(Output, "adc", "output");
     AdcConfig AdcSettings;
     AdcSettings.ReferenceAmplitude = ToNumericValue(
         FindKeyInJson(Adc, "reference_amplitude", "output.adc"),
@@ -423,142 +424,122 @@ void ConfigParser::ParseAdcConfiguration(const Json& rOutput, SimulatorConfig& r
         ThrowConfigError("output.adc.resolution_bits", "must be 8, 12, 16, or 24");
     }
     AdcSettings.ResolutionBits = static_cast<std::uint32_t>(ResolutionBits);
-    rConfig.Adc = AdcSettings;
+    Config.Adc = AdcSettings;
 }
 
 
-void ConfigParser::ParseBufferConfiguration(const Json& rRoot, SimulatorConfig& rConfig)
+void ConfigParser::ParseBufferConfiguration(const Json& Root, SimulatorConfig& Config)
 {
-    const Json& Buffer = FindKeyInJson(rRoot, "buffer", "$");
-    rConfig.SlotCount = ToSizeTValue(FindKeyInJson(Buffer, "slot_count", "buffer"),
-                                     "buffer.slot_count");
-    if (rConfig.SlotCount < 2 || rConfig.SlotCount > 6)
+    const Json& Buffer = FindKeyInJson(Root, "buffer", "$");
+    Config.SlotCount = ToSizeTValue(FindKeyInJson(Buffer, "slot_count", "buffer"),
+                                    "buffer.slot_count");
+    if (Config.SlotCount < 2 || Config.SlotCount > 6)
     {
         ThrowConfigError("buffer.slot_count", "must be between 2 and 6");
     }
-    rConfig.BlockSizeSamplesPerChannel = ToSizeTValue(
+    Config.BlockSizeSamplesPerChannel = ToSizeTValue(
         FindKeyInJson(Buffer, "block_size_samples_per_channel", "buffer"),
         "buffer.block_size_samples_per_channel");
-    if (rConfig.BlockSizeSamplesPerChannel == 0)
+    if (Config.BlockSizeSamplesPerChannel == 0)
     {
         ThrowConfigError("buffer.block_size_samples_per_channel", "must be greater than zero");
     }
 
-    ValidateSamplePayloadSize(rConfig);
+    ValidateSamplePayloadSize(Config);
 }
 
 
-void ConfigParser::ValidateSamplePayloadSize(const SimulatorConfig& rConfig)
+void ConfigParser::ValidateSamplePayloadSize(const SimulatorConfig& Config)
 {
-    const std::size_t BytesPerSample = rConfig.GetBytesPerSample();
+    const std::size_t BytesPerSample = Config.GetBytesPerSample();
     const std::size_t MaxSize = std::numeric_limits<std::size_t>::max();
-    const std::size_t ChannelCount = rConfig.Channels.size();
-    if (ChannelCount == 0 || rConfig.BlockSizeSamplesPerChannel > MaxSize / ChannelCount ||
-        rConfig.BlockSizeSamplesPerChannel * ChannelCount > MaxSize / BytesPerSample)
+    const std::size_t ChannelCount = Config.Channels.size();
+    if (ChannelCount == 0 || Config.BlockSizeSamplesPerChannel > MaxSize / ChannelCount ||
+        Config.BlockSizeSamplesPerChannel * ChannelCount > MaxSize / BytesPerSample)
     {
         ThrowConfigError("buffer.block_size_samples_per_channel", "sample payload size overflows this platform");
     }
 }
 
 
-void ConfigParser::ParseIpcConfiguration(const Json& rRoot, SimulatorConfig& rConfig)
+void ConfigParser::ParseIpcConfiguration(const Json& Root, SimulatorConfig& Config)
 {
-    const Json& Ipc = FindKeyInJson(rRoot, "ipc", "$");
-    rConfig.SharedMemoryName = ToStringValue(
+    const Json& Ipc = FindKeyInJson(Root, "ipc", "$");
+    Config.SharedMemoryName = ToStringValue(
         FindKeyInJson(Ipc, "shared_memory_name", "ipc"), "ipc.shared_memory_name");
-    ValidatePosixIpcName(rConfig.SharedMemoryName, "ipc.shared_memory_name");
-    ParseNotificationConfiguration(Ipc, rConfig);
+    ValidatePosixIpcName(Config.SharedMemoryName, "ipc.shared_memory_name");
+    Config.SemaphoreName =
+        ToStringValue(FindKeyInJson(Ipc, "semaphore_name", "ipc"), "ipc.semaphore_name");
+    ValidatePosixIpcName(Config.SemaphoreName, "ipc.semaphore_name");
 }
 
 
-void ConfigParser::ParseNotificationConfiguration(const Json& rIpc, SimulatorConfig& rConfig)
+void ConfigParser::ValidateNominalSignalWithinAdcRange(const SimulatorConfig& Config)
 {
-    const Json& Notification = FindKeyInJson(rIpc, "notification", "ipc");
-    rConfig.NotificationType = ToStringValue(
-        FindKeyInJson(Notification, "type", "ipc.notification"), "ipc.notification.type");
-    if (rConfig.NotificationType != "posix_named_semaphore")
-    {
-        ThrowConfigError("ipc.notification.type", "must be 'posix_named_semaphore'");
-    }
-    rConfig.NotificationName = ToStringValue(
-        FindKeyInJson(Notification, "name", "ipc.notification"), "ipc.notification.name");
-    ValidatePosixIpcName(rConfig.NotificationName, "ipc.notification.name");
-    const std::uint64_t InitialValue = ToUnsignedIntegerValue(
-        FindKeyInJson(Notification, "initial_value", "ipc.notification"),
-        "ipc.notification.initial_value");
-    if (InitialValue != 0)
-    {
-        ThrowConfigError("ipc.notification.initial_value", "must be 0");
-    }
-}
-
-
-void ConfigParser::ValidateNominalSignalWithinAdcRange(const SimulatorConfig& rConfig)
-{
-    if (!rConfig.Adc.has_value())
+    if (!Config.Adc.has_value())
     {
         return;
     }
 
-    const double LowerValue = rConfig.Offset - rConfig.NominalAmplitude;
-    const double UpperValue = rConfig.Offset + rConfig.NominalAmplitude;
-    if (rConfig.Adc->Polarity == AdcPolarity::Bipolar)
+    const double LowerValue = Config.Offset - Config.NominalAmplitude;
+    const double UpperValue = Config.Offset + Config.NominalAmplitude;
+    if (Config.Adc->Polarity == AdcPolarity::Bipolar)
     {
-        const double PeakEnvelope = std::abs(rConfig.Offset) + rConfig.NominalAmplitude;
-        if (!std::isfinite(PeakEnvelope) || PeakEnvelope > rConfig.Adc->ReferenceAmplitude)
+        const double PeakEnvelope = std::abs(Config.Offset) + Config.NominalAmplitude;
+        if (!std::isfinite(PeakEnvelope) || PeakEnvelope > Config.Adc->ReferenceAmplitude)
         {
             ThrowConfigError("signal", "nominal waveform exceeds the bipolar ADC range");
         }
     }
     else if (!std::isfinite(LowerValue) || !std::isfinite(UpperValue) ||
-             LowerValue < 0.0 || UpperValue > rConfig.Adc->ReferenceAmplitude)
+             LowerValue < 0.0 || UpperValue > Config.Adc->ReferenceAmplitude)
     {
         ThrowConfigError("signal", "nominal waveform exceeds the unipolar ADC range");
     }
 }
 
 
-void ConfigParser::ParseDisturbanceTimeline(const Json& rRoot, SimulatorConfig& rConfig)
+void ConfigParser::ParseDisturbanceTimeline(const Json& Root, SimulatorConfig& Config)
 {
-    if (!rRoot.contains("disturbance_timeline"))
+    if (!Root.contains("disturbance_timeline"))
     {
         return;
     }
-    const Json& Timeline = rRoot.at("disturbance_timeline");
+    const Json& Timeline = Root.at("disturbance_timeline");
     if (!Timeline.is_array())
     {
         ThrowConfigError("disturbance_timeline", "expected an array");
     }
-    const std::size_t ChannelCount = rConfig.Channels.size();
+    const std::size_t ChannelCount = Config.Channels.size();
     for (std::size_t Index = 0; Index < Timeline.size(); ++Index)
     {
-        rConfig.DisturbanceTimeline.push_back(
-            ParseDisturbanceEvent(Timeline[Index], Index, ChannelCount, rConfig.FrequencyHz));
+        Config.DisturbanceTimeline.push_back(
+            ParseDisturbanceEvent(Timeline[Index], Index, ChannelCount, Config.FrequencyHz));
     }
 }
 
 
-SimulatorConfig ConfigParser::ExtractAndValidateJson(const Json& rRoot)
+SimulatorConfig ConfigParser::ExtractAndValidateJson(const Json& Root)
 {
-    ValidateSchemaReference(rRoot);
+    ValidateSchemaReference(Root);
 
     SimulatorConfig Config;
-    ParseSignalConfiguration(rRoot, Config);
-    ParseSamplingConfiguration(rRoot, Config);
-    ParseOutputConfiguration(rRoot, Config);
-    ParseBufferConfiguration(rRoot, Config);
-    ParseIpcConfiguration(rRoot, Config);
+    ParseSignalConfiguration(Root, Config);
+    ParseSamplingConfiguration(Root, Config);
+    ParseOutputConfiguration(Root, Config);
+    ParseBufferConfiguration(Root, Config);
+    ParseIpcConfiguration(Root, Config);
     ValidateNominalSignalWithinAdcRange(Config);
-    ParseDisturbanceTimeline(rRoot, Config);
+    ParseDisturbanceTimeline(Root, Config);
     return Config;
 }
 
 
-SimulatorConfig ConfigParser::TryParsingJson(const Json& rDocument)
+SimulatorConfig ConfigParser::TryParsingJson(const Json& Document)
 {
     try
     {
-        return ExtractAndValidateJson(rDocument);
+        return ExtractAndValidateJson(Document);
     }
     catch (const Json::exception& Error)
     {
@@ -567,12 +548,12 @@ SimulatorConfig ConfigParser::TryParsingJson(const Json& rDocument)
 }
 
 
-SimulatorConfig ConfigParser::ParseConfigFile(const std::string& rPath)
+SimulatorConfig ConfigParser::ParseConfigFile(const std::string& Path)
 {
-    std::ifstream Input(rPath);
+    std::ifstream Input(Path);
     if (!Input)
     {
-        throw std::runtime_error("cannot open configuration file '" + rPath + "'");
+        throw std::runtime_error("cannot open configuration file '" + Path + "'");
     }
     try
     {
@@ -580,6 +561,6 @@ SimulatorConfig ConfigParser::ParseConfigFile(const std::string& rPath)
     }
     catch (const Json::parse_error& Error)
     {
-        throw std::invalid_argument(std::string("invalid JSON in '") + rPath + "': " + Error.what());
+        throw std::invalid_argument(std::string("invalid JSON in '") + Path + "': " + Error.what());
     }
 }

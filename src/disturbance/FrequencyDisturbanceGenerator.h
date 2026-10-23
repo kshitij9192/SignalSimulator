@@ -8,17 +8,17 @@
 class FrequencyDisturbanceGenerator final : public IDisturbanceGenerator
 {
   public:
-    explicit FrequencyDisturbanceGenerator(const FrequencyDistortionEvent& rEvent);
+    explicit FrequencyDisturbanceGenerator(const FrequencyDistortionEvent& Event);
     ~FrequencyDisturbanceGenerator() override = default;
 
     FrequencyDisturbanceGenerator(const FrequencyDisturbanceGenerator&) = delete;
     FrequencyDisturbanceGenerator& operator=(const FrequencyDisturbanceGenerator&) = delete;
 
-    void EvaluateDisturbance(std::uint64_t SimulationTimeNs,
-                             SampleDisturbance& rOutDisturbance) override;
+    void ApplyDisturbance(std::uint64_t SimulationTimeNs,
+                          SampleDisturbance& OutDisturbance) override;
 
   private:
     bool IsEventActive(std::uint64_t SimulationTimeNs) const;
 
-    const FrequencyDistortionEvent& m_rEvent;
+    const FrequencyDistortionEvent& m_Event;
 };

@@ -34,12 +34,8 @@
         "block_size_samples_per_channel": 32
     },
     "ipc": {
-        "shared_memory_name": "/signalsimulator_adc",
-        "notification": {
-            "type": "posix_named_semaphore",
-            "name": "/signalsimulator_adc_ready",
-            "initial_value": 0
-        }
+        "shared_memory_name": "/sigsim_mem",
+        "semaphore_name": "/sigsim_data_ready"
     },
     "disturbance_timeline": [
         {

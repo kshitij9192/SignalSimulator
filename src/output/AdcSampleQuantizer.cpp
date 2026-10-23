@@ -4,17 +4,17 @@
 #include <cmath>
 #include <cstring>
 
-AdcSampleQuantizer::AdcSampleQuantizer(const AdcConfig& rAdcConfig)
-    : m_rAdcConfig(rAdcConfig), m_BytesPerSample(rAdcConfig.GetBytesPerSample())
+AdcSampleQuantizer::AdcSampleQuantizer(const AdcConfig& AdcConfigValue)
+    : m_AdcConfig(AdcConfigValue), m_BytesPerSample(AdcConfigValue.GetBytesPerSample())
 {
 }
 
 
 std::uint32_t AdcSampleQuantizer::QuantizeUnipolarCode(double InputSample) const
 {
-    const double ClampedInputValue = std::clamp(InputSample, 0.0, m_rAdcConfig.ReferenceAmplitude);
-    const std::uint64_t MaxADCValue = (1ULL << m_rAdcConfig.ResolutionBits) - 1ULL;
-    const double NormalizedInputValue = ClampedInputValue / m_rAdcConfig.ReferenceAmplitude;
+    const double ClampedInputValue = std::clamp(InputSample, 0.0, m_AdcConfig.ReferenceAmplitude);
+    const std::uint64_t MaxADCValue = (1ULL << m_AdcConfig.ResolutionBits) - 1ULL;
+    const double NormalizedInputValue = ClampedInputValue / m_AdcConfig.ReferenceAmplitude;
     const std::int64_t RoundedADCValue = std::llround(NormalizedInputValue * static_cast<double>(MaxADCValue));
 
     return static_cast<std::uint32_t>(RoundedADCValue);
@@ -23,9 +23,9 @@ std::uint32_t AdcSampleQuantizer::QuantizeUnipolarCode(double InputSample) const
 
 std::int32_t AdcSampleQuantizer::QuantizeBipolarCode(double InputSample) const
 {
-    const double ReferenceAmplitude = m_rAdcConfig.ReferenceAmplitude;
+    const double ReferenceAmplitude = m_AdcConfig.ReferenceAmplitude;
     const double ClampedInputValue = std::clamp(InputSample, -ReferenceAmplitude, ReferenceAmplitude);
-    const std::int64_t HalfScale = 1LL << (m_rAdcConfig.ResolutionBits - 1U);
+    const std::uint64_t HalfScale = 1ULL << (m_AdcConfig.ResolutionBits - 1U);
     const double NormalizedInputValue = (ClampedInputValue / ReferenceAmplitude) * static_cast<double>(HalfScale);
     const std::int64_t RoundedADCValue = std::llround(NormalizedInputValue);
 
@@ -34,55 +34,55 @@ std::int32_t AdcSampleQuantizer::QuantizeBipolarCode(double InputSample) const
 
 
 void AdcSampleQuantizer::WriteUnipolarADCValue(std::uint32_t InputADCValue,
-                                               std::byte* pDestination) const
+                                               std::byte* Destination) const
 {
     if (m_BytesPerSample == 1)
     {
         const auto Value = static_cast<std::uint8_t>(InputADCValue);
-        std::memcpy(pDestination, &Value, sizeof(Value));
+        std::memcpy(Destination, &Value, sizeof(Value));
     }
     else if (m_BytesPerSample == 2)
     {
         const auto Value = static_cast<std::uint16_t>(InputADCValue);
-        std::memcpy(pDestination, &Value, sizeof(Value));
+        std::memcpy(Destination, &Value, sizeof(Value));
     }
     else
     {
-        std::memcpy(pDestination, &InputADCValue, sizeof(InputADCValue));
+        std::memcpy(Destination, &InputADCValue, sizeof(InputADCValue));
     }
 }
 
 
 void AdcSampleQuantizer::WriteBipolarADCValue(std::int32_t InputADCValue,
-                                              std::byte* pDestination) const
+                                              std::byte* Destination) const
 {
     if (m_BytesPerSample == 1)
     {
         const auto Value = static_cast<std::int8_t>(InputADCValue);
-        std::memcpy(pDestination, &Value, sizeof(Value));
+        std::memcpy(Destination, &Value, sizeof(Value));
     }
     else if (m_BytesPerSample == 2)
     {
         const auto Value = static_cast<std::int16_t>(InputADCValue);
-        std::memcpy(pDestination, &Value, sizeof(Value));
+        std::memcpy(Destination, &Value, sizeof(Value));
     }
     else
     {
-        std::memcpy(pDestination, &InputADCValue, sizeof(InputADCValue));
+        std::memcpy(Destination, &InputADCValue, sizeof(InputADCValue));
     }
 }
 
 
 void AdcSampleQuantizer::QuantizeSampleAndCopyToMemory(double SampleValue,
-                                                       std::byte* pDestination) const
+                                                       std::byte* Destination) const
 {
-    if (m_rAdcConfig.Polarity == AdcPolarity::Unipolar)
+    if (m_AdcConfig.Polarity == AdcPolarity::Unipolar)
     {
-        WriteUnipolarADCValue(QuantizeUnipolarCode(SampleValue), pDestination);
+        WriteUnipolarADCValue(QuantizeUnipolarCode(SampleValue), Destination);
     }
     else
     {
-        WriteBipolarADCValue(QuantizeBipolarCode(SampleValue), pDestination);
+        WriteBipolarADCValue(QuantizeBipolarCode(SampleValue), Destination);
     }
 }
 

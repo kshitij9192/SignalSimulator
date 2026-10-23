@@ -22,6 +22,6 @@ class IDisturbanceGenerator
   public:
     virtual ~IDisturbanceGenerator() = default;
 
-    virtual void EvaluateDisturbance(std::uint64_t SimulationTimeNs,
-                                     SampleDisturbance& rOutDisturbance) = 0;
+    virtual void ApplyDisturbance(std::uint64_t SimulationTimeNs,
+                                  SampleDisturbance& OutDisturbance) = 0;
 };

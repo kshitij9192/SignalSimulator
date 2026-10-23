@@ -1,31 +1,31 @@
 #include "disturbance/SagDisturbanceGenerator.h"
 
-SagDisturbanceGenerator::SagDisturbanceGenerator(const SagEvent& rEvent, std::size_t ChannelCount)
-    : m_rEvent(rEvent), m_ChannelCount(ChannelCount)
+SagDisturbanceGenerator::SagDisturbanceGenerator(const SagEvent& Event, std::size_t ChannelCount)
+    : m_Event(Event), m_ChannelCount(ChannelCount)
 {
 }
 
 
 bool SagDisturbanceGenerator::IsEventActive(std::uint64_t SimulationTimeNs) const
 {
-    return SimulationTimeNs >= m_rEvent.StartTimeNs &&
-           (SimulationTimeNs - m_rEvent.StartTimeNs) < m_rEvent.DurationNs;
+    return SimulationTimeNs >= m_Event.StartTimeNs &&
+           (SimulationTimeNs - m_Event.StartTimeNs) < m_Event.DurationNs;
 }
 
 
-void SagDisturbanceGenerator::EvaluateDisturbance(std::uint64_t SimulationTimeNs,
-                                                  SampleDisturbance& rOutDisturbance)
+void SagDisturbanceGenerator::ApplyDisturbance(std::uint64_t SimulationTimeNs,
+                                               SampleDisturbance& OutDisturbance)
 {
-    if (rOutDisturbance.Channels.size() != m_ChannelCount)
+    if (OutDisturbance.Channels.size() != m_ChannelCount)
     {
-        rOutDisturbance.Channels.assign(m_ChannelCount, ChannelDisturbance{});
+        OutDisturbance.Channels.assign(m_ChannelCount, ChannelDisturbance{});
     }
 
     if (IsEventActive(SimulationTimeNs))
     {
-        for (const std::size_t ChannelIndex : m_rEvent.TargetChannels)
+        for (const std::size_t ChannelIndex : m_Event.TargetChannels)
         {
-            rOutDisturbance.Channels[ChannelIndex].AmplitudeScale *= m_rEvent.ScalingFactor;
+            OutDisturbance.Channels[ChannelIndex].AmplitudeScale *= m_Event.ScalingFactor;
         }
     }
 }

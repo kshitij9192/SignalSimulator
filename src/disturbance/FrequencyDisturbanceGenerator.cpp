@@ -1,34 +1,34 @@
 #include "disturbance/FrequencyDisturbanceGenerator.h"
 
 FrequencyDisturbanceGenerator::FrequencyDisturbanceGenerator(
-    const FrequencyDistortionEvent& rEvent)
-    : m_rEvent(rEvent)
+    const FrequencyDistortionEvent& Event)
+    : m_Event(Event)
 {
 }
 
 
 bool FrequencyDisturbanceGenerator::IsEventActive(std::uint64_t SimulationTimeNs) const
 {
-    return SimulationTimeNs >= m_rEvent.StartTimeNs &&
-           (SimulationTimeNs - m_rEvent.StartTimeNs) < m_rEvent.DurationNs;
+    return SimulationTimeNs >= m_Event.StartTimeNs &&
+           (SimulationTimeNs - m_Event.StartTimeNs) < m_Event.DurationNs;
 }
 
 
-void FrequencyDisturbanceGenerator::EvaluateDisturbance(std::uint64_t SimulationTimeNs,
-                                                        SampleDisturbance& rOutDisturbance)
+void FrequencyDisturbanceGenerator::ApplyDisturbance(std::uint64_t SimulationTimeNs,
+                                                     SampleDisturbance& OutDisturbance)
 {
     if (IsEventActive(SimulationTimeNs))
     {
-        if (m_rEvent.Mode == FrequencyDistortionMode::Step)
+        if (m_Event.Mode == FrequencyDistortionMode::Step)
         {
-            rOutDisturbance.DeltaFrequencyHz += m_rEvent.DeltaFrequencyHz;
+            OutDisturbance.DeltaFrequencyHz += m_Event.DeltaFrequencyHz;
         }
         else
         {
-            const double ElapsedNs = static_cast<double>(SimulationTimeNs - m_rEvent.StartTimeNs);
-            const double DurationNs = static_cast<double>(m_rEvent.DurationNs);
-            rOutDisturbance.DeltaFrequencyHz +=
-                m_rEvent.DeltaFrequencyHz * (ElapsedNs / DurationNs);
+            const double ElapsedNs = static_cast<double>(SimulationTimeNs - m_Event.StartTimeNs);
+            const double DurationNs = static_cast<double>(m_Event.DurationNs);
+            OutDisturbance.DeltaFrequencyHz +=
+                m_Event.DeltaFrequencyHz * (ElapsedNs / DurationNs);
         }
     }
 }

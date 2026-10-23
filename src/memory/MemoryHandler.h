@@ -7,11 +7,10 @@
 #include <cstddef>
 #include <cstdint>
 
-inline constexpr std::uint32_t SharedMemoryMagic = 0x53494753U;
-
-
 struct alignas(8) GlobalControlHeader
 {
+    static constexpr std::uint32_t m_SharedMemoryMagic = 0x53494753U;
+
     std::uint32_t Magic = 0;
     std::uint32_t SlotCount = 0;
     std::uint64_t BlockSizeSamplesPerChannel = 0;
@@ -40,13 +39,16 @@ struct alignas(8) PerSlotHeader
 class MemoryHandler final
 {
   public:
-    MemoryHandler(const SimulatorConfig& rConfig, IOsAbstractions& rOsAbstractions);
+    MemoryHandler(const SimulatorConfig& Config, IOsAbstractions& OsAbstractions);
     ~MemoryHandler();
 
     MemoryHandler(const MemoryHandler&) = delete;
     MemoryHandler& operator=(const MemoryHandler&) = delete;
 
     void* GetSharedMemoryBase();
+    GlobalControlHeader& GetGlobalControlHeader();
+    PerSlotHeader& GetSlotHeader(std::size_t SlotIndex);
+    std::byte* GetSlotPayloadStartingAddress(std::size_t SlotIndex);
 
   private:
     std::size_t CalculatePayloadSize() const;
@@ -57,7 +59,7 @@ class MemoryHandler final
     void InitializeSlotHeaders();
     void Init();
 
-    const SimulatorConfig& m_rConfig;
-    IOsAbstractions& m_rOsAbstractions;
-    void* m_pSharedMemory = nullptr;
+    const SimulatorConfig& m_Config;
+    IOsAbstractions& m_OsAbstractions;
+    void* m_SharedMemory = nullptr;
 };

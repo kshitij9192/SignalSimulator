@@ -12,23 +12,23 @@ class OutputGenerator final
 {
   public:
     OutputGenerator(
-        const SimulatorConfig& rConfig, ISignalGenerator& rSignalGenerator,
-        const std::vector<std::unique_ptr<IDisturbanceGenerator>>& rDisturbanceGenerators);
+        const SimulatorConfig& Config, ISignalGenerator& SignalGenerator,
+        const std::vector<std::unique_ptr<IDisturbanceGenerator>>& DisturbanceGenerators);
     ~OutputGenerator() = default;
 
     OutputGenerator(const OutputGenerator&) = delete;
     OutputGenerator& operator=(const OutputGenerator&) = delete;
 
     void GenerateCompositeSample(std::uint64_t SimulationTimeNs,
-                                 std::vector<double>& rOutChannelSamples);
+                                 std::vector<double>& OutChannelSamples);
 
   private:
     void ResetCurrentDisturbance();
-    void EvaluateAllDisturbances(std::uint64_t SimulationTimeNs);
+    void ApplyAllDisturbances(std::uint64_t SimulationTimeNs);
 
-    const SimulatorConfig& m_rConfig;
-    ISignalGenerator& m_rSignalGenerator;
-    const std::vector<std::unique_ptr<IDisturbanceGenerator>>& m_rDisturbanceGenerators;
+    const SimulatorConfig& m_Config;
+    ISignalGenerator& m_SignalGenerator;
+    const std::vector<std::unique_ptr<IDisturbanceGenerator>>& m_DisturbanceGenerators;
     SampleDisturbance m_CurrentDisturbance;
     std::vector<double> m_BaseChannelSamples;
 };

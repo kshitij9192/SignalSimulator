@@ -43,7 +43,7 @@ interface ISignalGenerator {
 interface IDisturbanceGenerator
 {
     --
-    EvaluateDisturbance(): void
+    ApplyDisturbance(): void
 }
 
 @enduml

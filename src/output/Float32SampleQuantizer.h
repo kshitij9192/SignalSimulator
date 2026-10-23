@@ -11,6 +11,6 @@ class Float32SampleQuantizer final : public ISampleQuantizer
     Float32SampleQuantizer(const Float32SampleQuantizer&) = delete;
     Float32SampleQuantizer& operator=(const Float32SampleQuantizer&) = delete;
 
-    void QuantizeSampleAndCopyToMemory(double InputSample, std::byte* pDestination) const override;
+    void QuantizeSampleAndCopyToMemory(double InputSample, std::byte* Destination) const override;
     std::size_t GetBytesPerSample() const override;
 };
