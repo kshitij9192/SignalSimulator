@@ -1,18 +1,17 @@
+#include "SignalSimulatorFactory.h"
 #include "config/ConfigParser.h"
-#include "memory/MemoryHandler.h"
-#include "platform/LinuxOsAbstractions.h"
 
 #include <exception>
 #include <iostream>
 #include <stdexcept>
 #include <string>
 
-std::string ParseConfigPathFromArguments(int ArgumentCount, char* pArguments[])
+std::string ParseConfigPathFromArguments(int ArgumentCount, char* Arguments[])
 {
     std::string ConfigPath;
     for (int ArgumentIndex = 1; ArgumentIndex < ArgumentCount; ++ArgumentIndex)
     {
-        const std::string Argument = pArguments[ArgumentIndex];
+        const std::string Argument = Arguments[ArgumentIndex];
         if (Argument != "--config" && Argument != "-c")
         {
             throw std::invalid_argument("unknown argument '" + Argument + "'");
@@ -25,7 +24,7 @@ std::string ParseConfigPathFromArguments(int ArgumentCount, char* pArguments[])
         {
             throw std::invalid_argument("missing path after " + Argument);
         }
-        ConfigPath = pArguments[++ArgumentIndex];
+        ConfigPath = Arguments[++ArgumentIndex];
     }
 
     if (ConfigPath.empty())
@@ -37,9 +36,9 @@ std::string ParseConfigPathFromArguments(int ArgumentCount, char* pArguments[])
 }
 
 
-int main(int ArgumentCount, char* pArguments[])
+int main(int ArgumentCount, char* Arguments[])
 {
-    if (ArgumentCount == 2 && std::string(pArguments[1]) == "--help")
+    if (ArgumentCount == 2 && std::string(Arguments[1]) == "--help")
     {
         std::cout << "Usage: signal_simulator --config <path> (or -c <path>)\n";
         return 0;
@@ -47,17 +46,16 @@ int main(int ArgumentCount, char* pArguments[])
 
     try
     {
-        const std::string ConfigPath = ParseConfigPathFromArguments(ArgumentCount, pArguments);
+        const std::string ConfigPath = ParseConfigPathFromArguments(ArgumentCount, Arguments);
         const SimulatorConfig Config = ConfigParser::ParseConfigFile(ConfigPath);
-        LinuxOsAbstractions OsAbstractions;
-        MemoryHandler SharedMemory(Config, OsAbstractions);
+        SignalSimulatorFactory SimulatorFactory(Config);
+        SimulatorFactory.GetDataProducer()->Run();
 
-        std::cout << "Configuration valid: " << ConfigPath << '\n';
         return 0;
     }
-    catch (const std::exception& rError)
+    catch (const std::exception& Error)
     {
-        std::cerr << "Configuration error: " << rError.what() << '\n';
+        std::cerr << "Error: " << Error.what() << '\n';
         return 1;
     }
 }

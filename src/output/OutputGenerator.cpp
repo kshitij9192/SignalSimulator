@@ -1,51 +1,51 @@
 #include "output/OutputGenerator.h"
 
 OutputGenerator::OutputGenerator(
-    const SimulatorConfig& rConfig, ISignalGenerator& rSignalGenerator,
-    const std::vector<std::unique_ptr<IDisturbanceGenerator>>& rDisturbanceGenerators)
-    : m_rConfig(rConfig),
-      m_rSignalGenerator(rSignalGenerator),
-      m_rDisturbanceGenerators(rDisturbanceGenerators),
-      m_BaseChannelSamples(rConfig.Channels.size(), 0.0)
+    const SimulatorConfig& Config, ISignalGenerator& SignalGenerator,
+    const std::vector<std::unique_ptr<IDisturbanceGenerator>>& DisturbanceGenerators)
+    : m_Config(Config),
+      m_SignalGenerator(SignalGenerator),
+      m_DisturbanceGenerators(DisturbanceGenerators),
+      m_BaseChannelSamples(Config.Channels.size(), 0.0)
 {
-    m_CurrentDisturbance.Channels.resize(rConfig.Channels.size());
+    m_CurrentDisturbance.Channels.resize(Config.Channels.size());
 }
 
 
 void OutputGenerator::ResetCurrentDisturbance()
 {
     m_CurrentDisturbance.DeltaFrequencyHz = 0.0;
-    m_CurrentDisturbance.Channels.assign(m_rConfig.Channels.size(), ChannelDisturbance{});
+    m_CurrentDisturbance.Channels.assign(m_Config.Channels.size(), ChannelDisturbance{});
 }
 
 
-void OutputGenerator::EvaluateAllDisturbances(std::uint64_t SimulationTimeNs)
+void OutputGenerator::ApplyAllDisturbances(std::uint64_t SimulationTimeNs)
 {
     ResetCurrentDisturbance();
 
-    for (const std::unique_ptr<IDisturbanceGenerator>& rGenerator : m_rDisturbanceGenerators)
+    for (const std::unique_ptr<IDisturbanceGenerator>& Generator : m_DisturbanceGenerators)
     {
-        rGenerator->EvaluateDisturbance(SimulationTimeNs, m_CurrentDisturbance);
+        Generator->ApplyDisturbance(SimulationTimeNs, m_CurrentDisturbance);
     }
 }
 
 
 void OutputGenerator::GenerateCompositeSample(std::uint64_t SimulationTimeNs,
-                                              std::vector<double>& rOutChannelSamples)
+                                              std::vector<double>& OutChannelSamples)
 {
-    EvaluateAllDisturbances(SimulationTimeNs);
-    m_rSignalGenerator.GenerateSample(m_CurrentDisturbance.DeltaFrequencyHz, m_BaseChannelSamples);
+    ApplyAllDisturbances(SimulationTimeNs);
+    m_SignalGenerator.GenerateSample(m_CurrentDisturbance.DeltaFrequencyHz, m_BaseChannelSamples);
 
-    const std::size_t ChannelCount = m_rConfig.Channels.size();
-    rOutChannelSamples.resize(ChannelCount);
+    const std::size_t ChannelCount = m_Config.Channels.size();
+    OutChannelSamples.resize(ChannelCount);
 
     for (std::size_t ChannelIndex = 0; ChannelIndex < ChannelCount; ++ChannelIndex)
     {
-        const ChannelDisturbance& rChannelDisturbance =
+        const ChannelDisturbance& CurrentChannelDisturbance =
             m_CurrentDisturbance.Channels[ChannelIndex];
-        rOutChannelSamples[ChannelIndex] =
-            m_rConfig.Offset +
-            (rChannelDisturbance.AmplitudeScale * m_BaseChannelSamples[ChannelIndex]) +
-            rChannelDisturbance.AdditiveOffset;
+        OutChannelSamples[ChannelIndex] =
+            m_Config.Offset +
+            (CurrentChannelDisturbance.AmplitudeScale * m_BaseChannelSamples[ChannelIndex]) +
+            CurrentChannelDisturbance.AdditiveOffset;
     }
 }

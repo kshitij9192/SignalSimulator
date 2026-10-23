@@ -11,14 +11,14 @@
 class BlockAssembler final
 {
   public:
-    BlockAssembler(const SimulatorConfig& rConfig, OutputGenerator& rOutputGenerator,
-                   const ISampleQuantizer& rSampleQuantizer);
+    BlockAssembler(const SimulatorConfig& Config, OutputGenerator& OutputGeneratorInstance,
+                   const ISampleQuantizer& SampleQuantizer);
     ~BlockAssembler() = default;
 
     BlockAssembler(const BlockAssembler&) = delete;
     BlockAssembler& operator=(const BlockAssembler&) = delete;
 
-    void AssembleBlock(std::uint64_t BlockStartTimeNs, std::byte* pPayloadDestination);
+    void AssembleBlock(std::uint64_t BlockStartTimeNs, std::byte* PayloadDestination);
 
   private:
     std::uint64_t CalculateSampleTimestampNs(std::uint64_t BlockStartTimeNs,
@@ -26,8 +26,10 @@ class BlockAssembler final
     std::size_t CalculateSampleByteOffset(std::size_t SampleIndex,
                                           std::size_t ChannelIndex) const;
 
-    const SimulatorConfig& m_rConfig;
-    OutputGenerator& m_rOutputGenerator;
-    const ISampleQuantizer& m_rSampleQuantizer;
+    static constexpr double m_NanosecondsPerSecond = 1e9;
+
+    const SimulatorConfig& m_Config;
+    OutputGenerator& m_OutputGenerator;
+    const ISampleQuantizer& m_SampleQuantizer;
     std::vector<double> m_ChannelSamples;
 };

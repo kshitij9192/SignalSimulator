@@ -7,28 +7,28 @@
 #include <variant>
 #include <vector>
 
-enum class SampleRepresentation : std::uint32_t
+enum class SampleRepresentation : std::uint8_t
 {
     AdcInteger,
     Float32
 };
 
 
-enum class ChannelDataLayout : std::uint32_t
+enum class ChannelDataLayout : std::uint8_t
 {
     Interleaved,
     Planar
 };
 
 
-enum class AdcPolarity : std::uint32_t
+enum class AdcPolarity : std::uint8_t
 {
     Unipolar,
     Bipolar
 };
 
 
-enum class FrequencyDistortionMode
+enum class FrequencyDistortionMode : std::uint8_t
 {
     Step,
     Ramp
@@ -124,9 +124,7 @@ struct SimulatorConfig
     std::size_t SlotCount = 0;
     std::size_t BlockSizeSamplesPerChannel = 0;
     std::string SharedMemoryName;
-    std::string NotificationType;
-    std::string NotificationName;
-    std::uint32_t NotificationInitialValue = 0;
+    std::string SemaphoreName;
     std::vector<DisturbanceEvent> DisturbanceTimeline;
 
     std::size_t GetBytesPerSample() const

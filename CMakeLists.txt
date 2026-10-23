@@ -42,7 +42,7 @@ option(SIGNAL_SIMULATOR_ENABLE_CLANG_TIDY "Run clang-tidy during C++ compilation
 if(SIGNAL_SIMULATOR_ENABLE_CLANG_TIDY)
     find_program(CLANG_TIDY_EXECUTABLE NAMES clang-tidy REQUIRED)
     set(SIGNAL_SIMULATOR_CLANG_TIDY_COMMAND
-        "${CLANG_TIDY_EXECUTABLE};--experimental-custom-checks"
+        "${CLANG_TIDY_EXECUTABLE};--header-filter=^${CMAKE_CURRENT_SOURCE_DIR}/(src|test)/"
     )
 endif()
 
@@ -59,6 +59,7 @@ endif()
 
 set(SIGNAL_SIMULATOR_CPP_SOURCES
     src/Main.cpp
+    src/SignalSimulatorFactory.cpp
     src/disturbance/FrequencyDisturbanceGenerator.cpp
     src/disturbance/SagDisturbanceGenerator.cpp
     src/disturbance/SurgeDisturbanceGenerator.cpp
@@ -66,12 +67,14 @@ set(SIGNAL_SIMULATOR_CPP_SOURCES
     src/memory/MemoryHandler.cpp
     src/output/AdcSampleQuantizer.cpp
     src/output/BlockAssembler.cpp
+    src/output/DataProducer.cpp
     src/output/Float32SampleQuantizer.cpp
     src/output/OutputGenerator.cpp
     src/signal/SineSignalGenerator.cpp
     ${SIGNAL_SIMULATOR_PLATFORM_CPP_SOURCES}
 )
 set(SIGNAL_SIMULATOR_HEADER_FILES
+    src/SignalSimulatorFactory.h
     src/config/Config.h
     src/config/ConfigParser.h
     src/disturbance/FrequencyDisturbanceGenerator.h
@@ -82,6 +85,7 @@ set(SIGNAL_SIMULATOR_HEADER_FILES
     src/memory/MemoryHandler.h
     src/output/AdcSampleQuantizer.h
     src/output/BlockAssembler.h
+    src/output/DataProducer.h
     src/output/Float32SampleQuantizer.h
     src/output/ISampleQuantizer.h
     src/output/OutputGenerator.h
@@ -96,8 +100,18 @@ set(SIGNAL_SIMULATOR_CXX_SOURCES
     ${SIGNAL_SIMULATOR_HEADER_FILES}
 )
 
+set(SIGNAL_SIMULATOR_WARNING_FLAGS
+    -Wall
+    -Wextra
+    -Wpedantic
+    -Wconversion
+    -Wsign-conversion
+    -Werror
+)
+
 add_library(signal_simulator_config src/config/ConfigParser.cpp src/config/ConfigParser.h)
 target_compile_features(signal_simulator_config PUBLIC cxx_std_17)
+target_compile_options(signal_simulator_config PRIVATE ${SIGNAL_SIMULATOR_WARNING_FLAGS})
 target_include_directories(signal_simulator_config PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
 target_link_libraries(signal_simulator_config PUBLIC nlohmann_json::nlohmann_json)
 
@@ -105,6 +119,7 @@ add_executable(signal_simulator
     ${SIGNAL_SIMULATOR_CPP_SOURCES}
     ${SIGNAL_SIMULATOR_HEADER_FILES}
 )
+target_compile_options(signal_simulator PRIVATE ${SIGNAL_SIMULATOR_WARNING_FLAGS})
 target_link_libraries(signal_simulator PRIVATE signal_simulator_config)
 
 if(SIGNAL_SIMULATOR_ENABLE_CLANG_TIDY)
@@ -117,9 +132,26 @@ endif()
 if(BUILD_TESTING)
     set(SIGNAL_SIMULATOR_TEST_SOURCES
         test/TestConfigParser.cpp
+        test/TestDataProducer.cpp
+        test/TestDisturbanceGenerators.cpp
+        test/TestLinuxOsAbstractions.cpp
+        test/TestSineSignalGenerator.cpp
+        src/memory/MemoryHandler.cpp
+        src/output/AdcSampleQuantizer.cpp
+        src/output/BlockAssembler.cpp
+        src/output/DataProducer.cpp
+        src/output/Float32SampleQuantizer.cpp
+        src/output/OutputGenerator.cpp
+        src/disturbance/FrequencyDisturbanceGenerator.cpp
+        src/disturbance/SagDisturbanceGenerator.cpp
+        src/disturbance/SurgeDisturbanceGenerator.cpp
+        src/disturbance/SwellDisturbanceGenerator.cpp
+        src/signal/SineSignalGenerator.cpp
+        ${SIGNAL_SIMULATOR_PLATFORM_CPP_SOURCES}
     )
 
     add_executable(signal_simulator_tests ${SIGNAL_SIMULATOR_TEST_SOURCES})
+    target_compile_options(signal_simulator_tests PRIVATE ${SIGNAL_SIMULATOR_WARNING_FLAGS})
     target_link_libraries(signal_simulator_tests
         PRIVATE
             signal_simulator_config

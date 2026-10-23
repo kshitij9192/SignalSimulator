@@ -1,9 +1,10 @@
 #include "memory/MemoryHandler.h"
 
 #include <new>
+#include <stdexcept>
 
-MemoryHandler::MemoryHandler(const SimulatorConfig& rConfig, IOsAbstractions& rOsAbstractions)
-    : m_rConfig(rConfig), m_rOsAbstractions(rOsAbstractions)
+MemoryHandler::MemoryHandler(const SimulatorConfig& Config, IOsAbstractions& OsAbstractions)
+    : m_Config(Config), m_OsAbstractions(OsAbstractions)
 {
     Init();
 }
@@ -16,8 +17,8 @@ MemoryHandler::~MemoryHandler()
 
 std::size_t MemoryHandler::CalculatePayloadSize() const
 {
-    return m_rConfig.BlockSizeSamplesPerChannel * m_rConfig.Channels.size() *
-           m_rConfig.GetBytesPerSample();
+    return m_Config.BlockSizeSamplesPerChannel * m_Config.Channels.size() *
+           m_Config.GetBytesPerSample();
 }
 
 
@@ -45,51 +46,52 @@ std::size_t MemoryHandler::CalculateSlotSize() const
 
 std::size_t MemoryHandler::CalculateTotalSharedMemorySize() const
 {
-    return sizeof(GlobalControlHeader) + (m_rConfig.SlotCount * CalculateSlotSize());
+    return sizeof(GlobalControlHeader) + (m_Config.SlotCount * CalculateSlotSize());
 }
 
 
 void MemoryHandler::InitializeGlobalHeader()
 {
-    auto* pGlobalHeader = new (m_pSharedMemory) GlobalControlHeader{};
-    pGlobalHeader->SlotCount = static_cast<std::uint32_t>(m_rConfig.SlotCount);
-    pGlobalHeader->BlockSizeSamplesPerChannel = m_rConfig.BlockSizeSamplesPerChannel;
-    pGlobalHeader->ChannelCount = m_rConfig.Channels.size();
-    pGlobalHeader->SampleRateHz = m_rConfig.SampleRateHz;
-    pGlobalHeader->Representation = m_rConfig.Representation;
-    pGlobalHeader->Layout = m_rConfig.Layout;
+    auto* GlobalHeader = new (m_SharedMemory) GlobalControlHeader{};
+    GlobalHeader->SlotCount = static_cast<std::uint32_t>(m_Config.SlotCount);
+    GlobalHeader->BlockSizeSamplesPerChannel = m_Config.BlockSizeSamplesPerChannel;
+    GlobalHeader->ChannelCount = m_Config.Channels.size();
+    GlobalHeader->SampleRateHz = m_Config.SampleRateHz;
+    GlobalHeader->Representation = m_Config.Representation;
+    GlobalHeader->Layout = m_Config.Layout;
 
-    if (m_rConfig.Adc.has_value())
+    if (m_Config.Adc.has_value())
     {
-        pGlobalHeader->Polarity = m_rConfig.Adc->Polarity;
-        pGlobalHeader->AdcResolutionBits = m_rConfig.Adc->ResolutionBits;
-        pGlobalHeader->AdcReferenceAmplitude = m_rConfig.Adc->ReferenceAmplitude;
+        GlobalHeader->Polarity = m_Config.Adc->Polarity;
+        GlobalHeader->AdcResolutionBits = m_Config.Adc->ResolutionBits;
+        GlobalHeader->AdcReferenceAmplitude = m_Config.Adc->ReferenceAmplitude;
     }
 
-    pGlobalHeader->Magic = SharedMemoryMagic;
+    GlobalHeader->Magic = GlobalControlHeader::m_SharedMemoryMagic;
 }
 
 
 void MemoryHandler::InitializeSlotHeaders()
 {
-    auto* pBaseBytes = static_cast<std::byte*>(m_pSharedMemory);
+    auto* BaseAddress = static_cast<std::byte*>(m_SharedMemory);
     const std::size_t PayloadSize = CalculatePayloadSize();
     const std::size_t SlotSize = CalculateSlotSize();
 
-    for (std::size_t SlotIndex = 0; SlotIndex < m_rConfig.SlotCount; ++SlotIndex)
+    for (std::size_t SlotIndex = 0; SlotIndex < m_Config.SlotCount; ++SlotIndex)
     {
         const std::size_t SlotOffset = sizeof(GlobalControlHeader) + (SlotIndex * SlotSize);
-        auto* pSlotHeader = new (pBaseBytes + SlotOffset) PerSlotHeader{};
-        pSlotHeader->SampleCountPerChannel = m_rConfig.BlockSizeSamplesPerChannel;
-        pSlotHeader->PayloadSizeBytes = PayloadSize;
+        auto* SlotHeader = new (BaseAddress + SlotOffset) PerSlotHeader{};
+        SlotHeader->SampleCountPerChannel = m_Config.BlockSizeSamplesPerChannel;
+        SlotHeader->PayloadSizeBytes = PayloadSize;
     }
 }
 
 
 void MemoryHandler::Init()
 {
-    m_pSharedMemory = m_rOsAbstractions.CreateAndMapMemory(m_rConfig.SharedMemoryName,
-                                                           CalculateTotalSharedMemorySize());
+    m_SharedMemory = m_OsAbstractions.CreateAndMapMemory(m_Config.SharedMemoryName,
+                                                         CalculateTotalSharedMemorySize());
+    m_OsAbstractions.CreateNotificationSemaphore(m_Config.SemaphoreName);
     InitializeSlotHeaders();
     InitializeGlobalHeader();
 }
@@ -97,5 +99,26 @@ void MemoryHandler::Init()
 
 void* MemoryHandler::GetSharedMemoryBase()
 {
-    return m_pSharedMemory;
+    return m_SharedMemory;
+}
+
+
+GlobalControlHeader& MemoryHandler::GetGlobalControlHeader()
+{
+    return *static_cast<GlobalControlHeader*>(m_SharedMemory);
+}
+
+
+PerSlotHeader& MemoryHandler::GetSlotHeader(std::size_t SlotIndex)
+{
+    auto* BaseAddress = static_cast<std::byte*>(m_SharedMemory);
+    const std::size_t SlotOffset = sizeof(GlobalControlHeader) + (SlotIndex * CalculateSlotSize());
+    return *reinterpret_cast<PerSlotHeader*>(BaseAddress + SlotOffset);
+}
+
+
+std::byte* MemoryHandler::GetSlotPayloadStartingAddress(std::size_t SlotIndex)
+{
+    auto& SlotHeader = GetSlotHeader(SlotIndex);
+    return reinterpret_cast<std::byte*>(&SlotHeader) + sizeof(PerSlotHeader);
 }
