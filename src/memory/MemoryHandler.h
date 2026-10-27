@@ -11,7 +11,7 @@ struct alignas(8) GlobalControlHeader
 {
     static constexpr std::uint32_t m_SharedMemoryMagic = 0x53494753U;
 
-    std::uint32_t Magic = 0;
+    std::atomic<std::uint32_t> Magic{0};
     std::uint32_t SlotCount = 0;
     std::uint64_t BlockSizeSamplesPerChannel = 0;
     std::uint64_t ChannelCount = 0;
@@ -49,9 +49,9 @@ class MemoryHandler final
     GlobalControlHeader& GetGlobalControlHeader();
     PerSlotHeader& GetSlotHeader(std::size_t SlotIndex);
     std::byte* GetSlotPayloadStartingAddress(std::size_t SlotIndex);
+    std::size_t CalculatePayloadSize() const;
 
   private:
-    std::size_t CalculatePayloadSize() const;
     std::size_t CalculateAlignedPayloadSize() const;
     std::size_t CalculateSlotSize() const;
     std::size_t CalculateTotalSharedMemorySize() const;

@@ -25,11 +25,15 @@ std::int32_t AdcSampleQuantizer::QuantizeBipolarCode(double InputSample) const
 {
     const double ReferenceAmplitude = m_AdcConfig.ReferenceAmplitude;
     const double ClampedInputValue = std::clamp(InputSample, -ReferenceAmplitude, ReferenceAmplitude);
-    const std::uint64_t HalfScale = 1ULL << (m_AdcConfig.ResolutionBits - 1U);
-    const double NormalizedInputValue = (ClampedInputValue / ReferenceAmplitude) * static_cast<double>(HalfScale);
+    const auto HalfScale = static_cast<std::int64_t>(1ULL << (m_AdcConfig.ResolutionBits - 1U));
+    const std::int64_t MinADCValue = -HalfScale;
+    const std::int64_t MaxADCValue = HalfScale - 1;
+    const double NormalizedInputValue =
+        (ClampedInputValue / ReferenceAmplitude) * static_cast<double>(HalfScale);
     const std::int64_t RoundedADCValue = std::llround(NormalizedInputValue);
+    const std::int64_t ClampedADCValue = std::clamp(RoundedADCValue, MinADCValue, MaxADCValue);
 
-    return static_cast<std::int32_t>(RoundedADCValue);
+    return static_cast<std::int32_t>(ClampedADCValue);
 }
 
 
@@ -84,10 +88,4 @@ void AdcSampleQuantizer::QuantizeSampleAndCopyToMemory(double SampleValue,
     {
         WriteBipolarADCValue(QuantizeBipolarCode(SampleValue), Destination);
     }
-}
-
-
-std::size_t AdcSampleQuantizer::GetBytesPerSample() const
-{
-    return m_BytesPerSample;
 }

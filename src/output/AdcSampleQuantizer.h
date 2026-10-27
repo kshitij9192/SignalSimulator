@@ -16,7 +16,6 @@ class AdcSampleQuantizer final : public ISampleQuantizer
     AdcSampleQuantizer& operator=(const AdcSampleQuantizer&) = delete;
 
     void QuantizeSampleAndCopyToMemory(double InputSample, std::byte* Destination) const override;
-    std::size_t GetBytesPerSample() const override;
 
   private:
     std::uint32_t QuantizeUnipolarCode(double InputSample) const;

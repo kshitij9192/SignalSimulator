@@ -21,8 +21,7 @@ class BlockAssembler final
     void AssembleBlock(std::uint64_t BlockStartTimeNs, std::byte* PayloadDestination);
 
   private:
-    std::uint64_t CalculateSampleTimestampNs(std::uint64_t BlockStartTimeNs,
-                                             std::size_t SampleIndex) const;
+    void InitializeSampleTimeOffsetsNs();
     std::size_t CalculateSampleByteOffset(std::size_t SampleIndex,
                                           std::size_t ChannelIndex) const;
 
@@ -32,4 +31,5 @@ class BlockAssembler final
     OutputGenerator& m_OutputGenerator;
     const ISampleQuantizer& m_SampleQuantizer;
     std::vector<double> m_ChannelSamples;
+    std::vector<std::uint64_t> m_SampleTimeOffsetsNs;
 };
