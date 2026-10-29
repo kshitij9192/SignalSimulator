@@ -67,7 +67,8 @@ void MemoryHandler::InitializeGlobalHeader()
         GlobalHeader->AdcReferenceAmplitude = m_Config.Adc->ReferenceAmplitude;
     }
 
-    GlobalHeader->Magic = GlobalControlHeader::m_SharedMemoryMagic;
+    GlobalHeader->Magic.store(GlobalControlHeader::m_SharedMemoryMagic,
+                              std::memory_order_release);
 }
 
 

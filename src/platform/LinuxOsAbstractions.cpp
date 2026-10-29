@@ -252,6 +252,7 @@ void LinuxOsAbstractions::RegisterSignalHandlers()
     struct sigaction SignalAction
     {
     };
+
     SignalAction.sa_handler = &LinuxOsAbstractions::HandleTerminationSignal;
     sigemptyset(&SignalAction.sa_mask);
     SignalAction.sa_flags = 0;

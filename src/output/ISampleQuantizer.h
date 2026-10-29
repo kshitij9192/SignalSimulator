@@ -8,5 +8,4 @@ class ISampleQuantizer
     virtual ~ISampleQuantizer() = default;
 
     virtual void QuantizeSampleAndCopyToMemory(double SampleValue, std::byte* Destination) const = 0;
-    virtual std::size_t GetBytesPerSample() const = 0;
 };

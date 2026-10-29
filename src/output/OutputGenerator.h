@@ -24,7 +24,7 @@ class OutputGenerator final
 
   private:
     void ResetCurrentDisturbance();
-    void ApplyAllDisturbances(std::uint64_t SimulationTimeNs);
+    void CalculateDisturbancesForSample(std::uint64_t SimulationTimeNs);
 
     const SimulatorConfig& m_Config;
     ISignalGenerator& m_SignalGenerator;

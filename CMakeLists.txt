@@ -131,10 +131,14 @@ endif()
 
 if(BUILD_TESTING)
     set(SIGNAL_SIMULATOR_TEST_SOURCES
+        test/TestAdcSampleQuantizer.cpp
+        test/TestBlockAssembler.cpp
         test/TestConfigParser.cpp
         test/TestDataProducer.cpp
         test/TestDisturbanceGenerators.cpp
         test/TestLinuxOsAbstractions.cpp
+        test/TestMemoryHandler.cpp
+        test/TestOutputGenerator.cpp
         test/TestSineSignalGenerator.cpp
         src/memory/MemoryHandler.cpp
         src/output/AdcSampleQuantizer.cpp
@@ -151,6 +155,7 @@ if(BUILD_TESTING)
     )
 
     add_executable(signal_simulator_tests ${SIGNAL_SIMULATOR_TEST_SOURCES})
+    target_include_directories(signal_simulator_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/test")
     target_compile_options(signal_simulator_tests PRIVATE ${SIGNAL_SIMULATOR_WARNING_FLAGS})
     target_link_libraries(signal_simulator_tests
         PRIVATE

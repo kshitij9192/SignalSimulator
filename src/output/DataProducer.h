@@ -30,7 +30,7 @@ class DataProducer final
                                std::uint64_t NextWriteSequence,
                                PerSlotHeader& SlotHeader,
                                GlobalControlHeader& GlobalHeader) const;
-    void ProduceBlock(std::uint64_t BlockIndex, GlobalControlHeader& GlobalHeader);
+    void ProduceBlock(std::uint64_t BlockTimestampNs, GlobalControlHeader& GlobalHeader);
 
     static constexpr long double m_NanosecondsPerSecond = 1'000'000'000.0L;
 
@@ -39,6 +39,4 @@ class DataProducer final
     IOsAbstractions& m_OsAbstractions;
     BlockAssembler& m_BlockAssembler;
     std::vector<std::byte> m_DroppedBlockPayload;
-    std::size_t m_PayloadSizeBytes = 0;
-    bool m_IsProducerRunning = false;
 };

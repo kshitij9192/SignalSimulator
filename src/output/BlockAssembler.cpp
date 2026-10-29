@@ -7,17 +7,22 @@ BlockAssembler::BlockAssembler(const SimulatorConfig& Config, OutputGenerator& O
     : m_Config(Config),
       m_OutputGenerator(OutputGeneratorInstance),
       m_SampleQuantizer(SampleQuantizer),
-      m_ChannelSamples(Config.Channels.size(), 0.0)
+      m_ChannelSamples(Config.Channels.size(), 0.0),
+      m_SampleTimeOffsetsNs(Config.BlockSizeSamplesPerChannel, 0U)
 {
+    InitializeSampleTimeOffsetsNs();
 }
 
 
-std::uint64_t BlockAssembler::CalculateSampleTimestampNs(std::uint64_t BlockStartTimeNs,
-                                                         std::size_t SampleIndex) const
+void BlockAssembler::InitializeSampleTimeOffsetsNs()
 {
-    const double OffsetNs =
-        (static_cast<double>(SampleIndex) * m_NanosecondsPerSecond) / m_Config.SampleRateHz;
-    return BlockStartTimeNs + static_cast<std::uint64_t>(std::llround(OffsetNs));
+    for (std::size_t SampleIndex = 0; SampleIndex < m_Config.BlockSizeSamplesPerChannel;
+         ++SampleIndex)
+    {
+        const double OffsetNs =
+            (static_cast<double>(SampleIndex) * m_NanosecondsPerSecond) / m_Config.SampleRateHz;
+        m_SampleTimeOffsetsNs[SampleIndex] = static_cast<std::uint64_t>(std::llround(OffsetNs));
+    }
 }
 
 
@@ -36,7 +41,7 @@ std::size_t BlockAssembler::CalculateSampleByteOffset(std::size_t SampleIndex,
         ElementIndex = (ChannelIndex * m_Config.BlockSizeSamplesPerChannel) + SampleIndex;
     }
 
-    return ElementIndex * m_SampleQuantizer.GetBytesPerSample();
+    return ElementIndex * m_Config.GetBytesPerSample();
 }
 
 
@@ -47,8 +52,7 @@ void BlockAssembler::AssembleBlock(std::uint64_t BlockStartTimeNs, std::byte* Pa
     for (std::size_t SampleIndex = 0; SampleIndex < m_Config.BlockSizeSamplesPerChannel;
          ++SampleIndex)
     {
-        const std::uint64_t SampleTimeNs =
-            CalculateSampleTimestampNs(BlockStartTimeNs, SampleIndex);
+        const std::uint64_t SampleTimeNs = BlockStartTimeNs + m_SampleTimeOffsetsNs[SampleIndex];
         m_OutputGenerator.GenerateCompositeSample(SampleTimeNs, m_ChannelSamples);
 
         for (std::size_t ChannelIndex = 0; ChannelIndex < ChannelCount; ++ChannelIndex)
